@@ -1,7 +1,9 @@
 # MiniGit
 ### A Lightweight Version Control System Using C++ and Data Structures
+#### Project-Based Learning (PBL) in Data Structures & C++ (DS CPP)
 
 [![Language](https://img.shields.io/badge/language-C%2B%2B-blue.svg)]()
+[![Course](https://img.shields.io/badge/PBL-DS%20CPP-emerald.svg)]()
 
 **Team Blaze** · DSCPP-III-2026-T296 · CSE (AI&ML)
 
@@ -127,17 +129,18 @@ make
 - Project report
 - Live demonstration
 
-## Team
+## Team & Phase 1 Contributions
 
-| Role | Name |
-|---|---|
-| Team Lead | Abhinesh Gangwar |
-| Member | Sparsh Jain |
-| Member | Krish Bajaj |
-| Member | Snehil Joshi |
+| Name | Role | Phase 1 Contributions (Planning & Design) |
+|---|---|---|
+| **Abhinesh Gangwar** | Team Lead & Systems Architect | Overall system architecture, modular 5-layer design, project scoping, and command dispatch flow orchestration |
+| **Sparsh Jain** | CLI & Staging Designer | Command-line syntax grammar (`init`, `add`, `commit`), argument validation rules, and Hash Table staging index design |
+| **Krish Bajaj** | Commit Graph Modeler | Singly Linked List model for commit history graph, pointer transition design, and commit node metadata schema |
+| **Snehil Joshi** | State & Storage Lead | Rollback LIFO stack mechanism design, `.minigit/` disk storage layout specification, and Phase 1 project documentation compilation |
 
-**Team Name:** Blaze
-**Team #:** DSCPP-III-2026-T296
+**Course:** PBL in DS CPP · DSCPP-III-2026-T296 · CSE (AI&ML)  
+**Team Name:** Blaze  
+**Current Status:** Phase 1 (Planning & System Design)
 
 ## References
 
