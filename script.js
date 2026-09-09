@@ -111,7 +111,10 @@ class MiniGitSimulator {
             return { success: false, msg: "usage: minigit checkout <commit-id>" };
         }
 
-        const targetCommit = this.commits.find(c => c.id === targetCommitId || c.id.startsWith(targetCommitId));
+        // Exact match first, then clean prefix match
+        const targetCommit = this.commits.find(c => c.id === targetCommitId) ||
+                             this.commits.find(c => c.id.split('_')[0] === targetCommitId) ||
+                             this.commits.find(c => c.id.startsWith(targetCommitId));
         if (!targetCommit) {
             return { success: false, msg: `error: pathspec '${targetCommitId}' did not match any commit` };
         }
@@ -242,9 +245,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial Visualizer Render
     updateVisualizers();
+
+    // Setup PDF Visualizer and Mobile Menu
+    setupPdfViewer();
+    setupMobileMenu();
 });
 
-// Helper to output to terminal
+// Helper to output to terminal with RAF auto-scroll
 function printTermLine(text, type = 'info') {
     const output = document.getElementById('terminalOutput');
     if (!output) return;
@@ -260,6 +267,16 @@ function printTermLine(text, type = 'info') {
     }
 
     output.appendChild(line);
+    scrollTerminalToBottom();
+}
+
+function scrollTerminalToBottom() {
+    const termBody = document.getElementById('terminalBody');
+    if (termBody) {
+        requestAnimationFrame(() => {
+            termBody.scrollTop = termBody.scrollHeight;
+        });
+    }
 }
 
 function escapeHtml(str) {
@@ -302,19 +319,25 @@ function executeCommandString(cmdStr) {
             break;
 
         case 'add':
-            const filename = parts[1] || 'main.cpp';
-            result = repo.add(filename);
+            if (!parts[1]) {
+                result = { success: false, msg: "usage: minigit add <filename>\nexample: minigit add main.cpp" };
+            } else {
+                result = repo.add(parts[1]);
+            }
             break;
 
         case 'commit':
-            let msg = "Snapshot update";
             const mIndex = parts.indexOf('-m');
-            if (mIndex !== -1 && parts[mIndex + 1]) {
-                msg = parts.slice(mIndex + 1).join(' ').replace(/^["']|["']$/g, '');
-            } else if (parts[1]) {
-                msg = parts.slice(1).join(' ');
+            if (mIndex === -1) {
+                result = { success: false, msg: "error: missing -m flag\nusage: minigit commit -m \"commit message\"" };
+            } else {
+                const commitMsg = parts.slice(mIndex + 1).join(' ').replace(/^["']|["']$/g, '').trim();
+                if (!commitMsg) {
+                    result = { success: false, msg: "error: commit message cannot be empty\nusage: minigit commit -m \"commit message\"" };
+                } else {
+                    result = repo.commit(commitMsg);
+                }
             }
-            result = repo.commit(msg);
             break;
 
         case 'log':
@@ -322,8 +345,11 @@ function executeCommandString(cmdStr) {
             break;
 
         case 'checkout':
-            const targetId = parts[1];
-            result = repo.checkout(targetId);
+            if (!parts[1]) {
+                result = { success: false, msg: "usage: minigit checkout <commit-id>\nexample: minigit checkout c1" };
+            } else {
+                result = repo.checkout(parts[1]);
+            }
             break;
 
         case 'rollback':
@@ -536,35 +562,141 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 2500);
 }
 
-// Preset Workflows
+// Preset Workflows with Timer Queue Management
+let activePresetTimers = [];
+
+function clearActivePresetTimers() {
+    activePresetTimers.forEach(id => clearTimeout(id));
+    activePresetTimers = [];
+}
+
+function schedulePresetStep(cmd, delay) {
+    const timerId = setTimeout(() => {
+        executeCommandString(cmd);
+        activePresetTimers = activePresetTimers.filter(id => id !== timerId);
+    }, delay);
+    activePresetTimers.push(timerId);
+}
+
 function runPresetWorkflow(type) {
-    resetSandbox();
+    clearActivePresetTimers();
+    resetSandbox(false);
     
     if (type === 'full') {
         executeCommandString('minigit init');
-        setTimeout(() => executeCommandString('minigit add main.cpp'), 400);
-        setTimeout(() => executeCommandString('minigit add utils.h'), 800);
-        setTimeout(() => executeCommandString('minigit commit -m "Initial repository commit"'), 1200);
-        setTimeout(() => executeCommandString('minigit add main.cpp'), 1600);
-        setTimeout(() => executeCommandString('minigit commit -m "Add core data structure logic"'), 2000);
+        schedulePresetStep('minigit add main.cpp', 350);
+        schedulePresetStep('minigit add utils.h', 700);
+        schedulePresetStep('minigit commit -m "Initial repository commit"', 1100);
+        schedulePresetStep('minigit add main.cpp', 1500);
+        schedulePresetStep('minigit commit -m "Add core data structure logic"', 1900);
     } else if (type === 'init_add_commit') {
         executeCommandString('minigit init');
-        setTimeout(() => executeCommandString('minigit add index.html'), 400);
-        setTimeout(() => executeCommandString('minigit commit -m "Initial commit"'), 800);
+        schedulePresetStep('minigit add index.html', 350);
+        schedulePresetStep('minigit commit -m "Initial commit"', 750);
     } else if (type === 'checkout_demo') {
         executeCommandString('minigit init');
-        setTimeout(() => executeCommandString('minigit add file1.txt'), 300);
-        setTimeout(() => executeCommandString('minigit commit -m "Commit 1"'), 600);
-        setTimeout(() => executeCommandString('minigit add file2.txt'), 900);
-        setTimeout(() => executeCommandString('minigit commit -m "Commit 2"'), 1200);
-        setTimeout(() => executeCommandString('minigit checkout c1'), 1600);
+        schedulePresetStep('minigit add file1.txt', 300);
+        schedulePresetStep('minigit commit -m "Commit 1"', 600);
+        schedulePresetStep('minigit add file2.txt', 900);
+        schedulePresetStep('minigit commit -m "Commit 2"', 1200);
+        schedulePresetStep('minigit checkout c1', 1600);
     }
 }
 
-function resetSandbox() {
+function resetSandbox(notify = true) {
+    clearActivePresetTimers();
     repo.resetState();
     const termOutput = document.getElementById('terminalOutput');
     if (termOutput) termOutput.innerHTML = '';
-    printTermLine("Repository reset. Ready for new operations.", 'warning');
+    if (notify) {
+        printTermLine("Repository reset. Ready for new operations.", 'warning');
+    }
     updateVisualizers();
+}
+
+// --------------------------------------------------------------------------
+// 5. PDF VISUALIZER CONTROLLER (Reports/ Directory)
+// --------------------------------------------------------------------------
+function setupPdfViewer() {
+    const pdfFrame = document.getElementById('pdfFrame');
+    const pdfTabs = document.querySelectorAll('.pdf-tab');
+    const pdfTitle = document.getElementById('pdfDocTitle');
+    const pdfDesc = document.getElementById('pdfDocDesc');
+    const pdfDownload = document.getElementById('pdfDownloadBtn');
+    const pdfOpenTab = document.getElementById('pdfOpenTabBtn');
+    const pdfFullscreen = document.getElementById('pdfFullscreenBtn');
+    const pdfContainer = document.getElementById('pdfViewerContainer');
+
+    const docs = {
+        report: {
+            file: 'Reports/report.pdf',
+            title: 'MiniGit Phase 1 Design Report',
+            desc: 'Comprehensive specification covering problem motivation, system architecture, data structure analysis, class designs, and execution flows.',
+            downloadName: 'MiniGit-Phase1-Report.pdf'
+        },
+        ppt: {
+            file: 'Reports/ppt.pdf',
+            title: 'MiniGit Phase 1 Presentation Deck',
+            desc: 'Official presentation deck outlining problem motivation, modular 5-layer design, command set, and roadmap for Phase 1.',
+            downloadName: 'MiniGit-Phase1-Presentation.pdf'
+        }
+    };
+
+    pdfTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const docKey = tab.dataset.doc;
+            if (!docs[docKey]) return;
+
+            pdfTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            const doc = docs[docKey];
+            if (pdfFrame) {
+                pdfFrame.src = `${doc.file}#toolbar=1&view=FitH`;
+            }
+            if (pdfTitle) pdfTitle.textContent = doc.title;
+            if (pdfDesc) pdfDesc.textContent = doc.desc;
+            if (pdfDownload) {
+                pdfDownload.href = doc.file;
+                pdfDownload.download = doc.downloadName;
+            }
+            if (pdfOpenTab) {
+                pdfOpenTab.href = doc.file;
+            }
+        });
+    });
+
+    if (pdfFullscreen && pdfContainer) {
+        pdfFullscreen.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                pdfContainer.requestFullscreen().catch(err => {
+                    console.warn('Fullscreen request failed:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+    }
+}
+
+// --------------------------------------------------------------------------
+// 6. MOBILE NAVIGATION MENU
+// --------------------------------------------------------------------------
+function setupMobileMenu() {
+    const toggleBtn = document.getElementById('mobileMenuToggle');
+    const navMenu = document.querySelector('.nav-menu');
+    if (!toggleBtn || !navMenu) return;
+
+    toggleBtn.addEventListener('click', () => {
+        navMenu.classList.toggle('open');
+        const isOpen = navMenu.classList.contains('open');
+        toggleBtn.innerHTML = isOpen ? '<i class="fa-solid fa-xmark"></i>' : '<i class="fa-solid fa-bars"></i>';
+    });
+
+    navMenu.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            navMenu.classList.remove('open');
+            toggleBtn.innerHTML = '<i class="fa-solid fa-bars"></i>';
+        });
+    });
 }
