@@ -1,22 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MiniGit — Lightweight C++ Version Control System & Data Structure Visualizer</title>
-    <meta name="description" content="MiniGit is a local, command-line version control system built in C++ demonstrating core data structures like Singly Linked Lists, Hash Tables, and Stacks. Developed by Team Blaze.">
-    
+    <meta name="description"
+        content="MiniGit is a local, command-line version control system built in C++ demonstrating core data structures like Singly Linked Lists, Hash Tables, and Stacks. Developed by Team Blaze.">
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap"
+        rel="stylesheet">
+
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <!-- Ambient Background Lighting -->
     <div class="glow-bg-container">
@@ -35,26 +40,32 @@
                 </div>
                 <div class="logo-text">
                     <span class="brand-name">MiniGit</span>
-                    <span class="brand-badge">C++ VCS</span>
+                    <span class="brand-badge">PBL · C++ VCS</span>
                 </div>
             </a>
 
             <nav class="nav-menu">
                 <a href="#overview" class="nav-link active"><i class="fa-solid fa-compass"></i> Overview</a>
                 <a href="#architecture" class="nav-link"><i class="fa-solid fa-cubes"></i> Architecture</a>
-                <a href="#simulator" class="nav-link highlight-link"><i class="fa-solid fa-terminal"></i> Visualizer & CLI</a>
+                <a href="#simulator" class="nav-link highlight-link"><i class="fa-solid fa-terminal"></i> Visualizer &
+                    CLI</a>
                 <a href="#commands" class="nav-link"><i class="fa-solid fa-terminal"></i> Commands</a>
                 <a href="#roadmap" class="nav-link"><i class="fa-solid fa-route"></i> Roadmap</a>
                 <a href="#team" class="nav-link"><i class="fa-solid fa-users"></i> Team</a>
+                <a href="#reports" class="nav-link"><i class="fa-solid fa-file-pdf"></i> Reports</a>
             </nav>
 
             <div class="nav-actions">
-                <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle Light/Dark Theme" title="Toggle Theme">
+                <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle Light/Dark Theme"
+                    title="Toggle Theme">
                     <i class="fa-solid fa-moon"></i>
                 </button>
-                <a href="#simulator" class="btn btn-primary btn-sm">
-                    <i class="fa-solid fa-play"></i> Launch Sandbox
+                <a href="#simulator" class="btn btn-primary btn-sm nav-launch-btn">
+                    <i class="fa-solid fa-play"></i> Sandbox
                 </a>
+                <button id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Toggle Navigation Menu">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
             </div>
         </div>
     </header>
@@ -67,7 +78,7 @@
             <div class="hero-content">
                 <div class="hero-badge animate-fade-in">
                     <span class="badge-dot"></span>
-                    <span>Team Blaze · DSCPP-III-2026-T296 · CSE (AI&ML)</span>
+                    <span>PBL in DS CPP · Team Blaze · DSCPP-III-2026-T296 · CSE (AI&ML)</span>
                 </div>
 
                 <h1 class="hero-title animate-fade-in delay-1">
@@ -76,7 +87,9 @@
                 </h1>
 
                 <p class="hero-subtitle animate-fade-in delay-2">
-                    A compact, local C++ command-line version-control system engineered to demonstrate the fundamental mechanics of repository management, commit histories, file tracking, and state restorations without full-scale Git complexity.
+                    A compact, local C++ command-line version-control system engineered to demonstrate the fundamental
+                    mechanics of repository management, commit histories, file tracking, and state restorations without
+                    full-scale Git complexity.
                 </p>
 
                 <div class="hero-cta animate-fade-in delay-3">
@@ -127,7 +140,8 @@
             <div class="section-header text-center">
                 <span class="section-tag">Motivation</span>
                 <h2 class="section-title">Why MiniGit? Folder Chaos vs. Version Control</h2>
-                <p class="section-desc">Students frequently struggle with manual copy-paste folder backups. MiniGit abstracts the essential VCS engine into an elegant, observable workflow.</p>
+                <p class="section-desc">Students frequently struggle with manual copy-paste folder backups. MiniGit
+                    abstracts the essential VCS engine into an elegant, observable workflow.</p>
             </div>
 
             <div class="problem-solution-grid">
@@ -137,13 +151,16 @@
                         <i class="fa-solid fa-triangle-exclamation"></i> The Problem
                     </div>
                     <h3>Manual Folder Duplication</h3>
-                    <p>Saving copies like <code>project_final</code>, <code>project_final_v2</code>, <code>project_final_LATEST</code> leads to confusion, untracked changes, and catastrophic accidental overwrites.</p>
+                    <p>Saving copies like <code>project_final</code>, <code>project_final_v2</code>,
+                        <code>project_final_LATEST</code> leads to confusion, untracked changes, and catastrophic
+                        accidental overwrites.</p>
 
                     <div class="folder-chaos-preview">
                         <div class="folder-item danger"><i class="fa-solid fa-folder"></i> assignment_final/</div>
                         <div class="folder-item danger"><i class="fa-solid fa-folder"></i> assignment_final_v2/</div>
                         <div class="folder-item danger"><i class="fa-solid fa-folder"></i> assignment_REAL_FINAL/</div>
-                        <div class="folder-item danger"><i class="fa-solid fa-folder"></i> assignment_LATEST_DO_NOT_DELETE/</div>
+                        <div class="folder-item danger"><i class="fa-solid fa-folder"></i>
+                            assignment_LATEST_DO_NOT_DELETE/</div>
                     </div>
 
                     <ul class="card-list danger-list">
@@ -159,11 +176,13 @@
                         <i class="fa-solid fa-circle-check"></i> The MiniGit Solution
                     </div>
                     <h3>Structured Local Version Control</h3>
-                    <p>MiniGit isolates the core workflow — <strong>track, commit, inspect, restore</strong> — into a clean local <code>.minigit/</code> directory backed by efficient C++ data structures.</p>
+                    <p>MiniGit isolates the core workflow — <strong>track, commit, inspect, restore</strong> — into a
+                        clean local <code>.minigit/</code> directory backed by efficient C++ data structures.</p>
 
                     <div class="minigit-clean-preview">
                         <div class="clean-repo-header">
-                            <span class="clean-repo-title"><i class="fa-solid fa-folder-open text-cyan"></i> my_project/</span>
+                            <span class="clean-repo-title"><i class="fa-solid fa-folder-open text-cyan"></i>
+                                my_project/</span>
                             <span class="clean-tag"><i class="fa-solid fa-code-branch"></i> .minigit initialized</span>
                         </div>
                         <div class="clean-command-box">
@@ -187,7 +206,8 @@
             <div class="section-header text-center">
                 <span class="section-tag">System Design</span>
                 <h2 class="section-title">5-Layer Modular Architecture</h2>
-                <p class="section-desc">MiniGit decouples terminal command parsing, state validation, object storage, and underlying data structures.</p>
+                <p class="section-desc">MiniGit decouples terminal command parsing, state validation, object storage,
+                    and underlying data structures.</p>
             </div>
 
             <!-- Interactive Architecture Layers Diagram -->
@@ -230,7 +250,8 @@
                         <div class="layer-number">04</div>
                         <div class="layer-info">
                             <h4>Storage Layer</h4>
-                            <p>Manages physical file I/O for <code>.minigit/objects/</code>, <code>refs/</code>, <code>HEAD</code>, and <code>index</code>.</p>
+                            <p>Manages physical file I/O for <code>.minigit/objects/</code>, <code>refs/</code>,
+                                <code>HEAD</code>, and <code>index</code>.</p>
                         </div>
                         <div class="layer-badge"><i class="fa-solid fa-hard-drive"></i> File I/O</div>
                     </div>
@@ -255,7 +276,8 @@
                         <span class="class-type">C++ Class</span>
                         <h3><code>Repository</code></h3>
                     </div>
-                    <p>Main controller for repo initialization, file tracking, commit history maintenance, and disk persistence.</p>
+                    <p>Main controller for repo initialization, file tracking, commit history maintenance, and disk
+                        persistence.</p>
                     <div class="class-tags">
                         <span><i class="fa-solid fa-check"></i> init()</span>
                         <span><i class="fa-solid fa-check"></i> add()</span>
@@ -269,7 +291,8 @@
                         <span class="class-type">C++ Class</span>
                         <h3><code>Commit</code></h3>
                     </div>
-                    <p>Encapsulates commit ID (hash), commit message, creation timestamp, parent pointer, and snapshot file records.</p>
+                    <p>Encapsulates commit ID (hash), commit message, creation timestamp, parent pointer, and snapshot
+                        file records.</p>
                     <div class="class-tags">
                         <span><i class="fa-solid fa-key"></i> Commit ID</span>
                         <span><i class="fa-solid fa-clock"></i> Timestamp</span>
@@ -282,7 +305,8 @@
                         <span class="class-type">C++ Class</span>
                         <h3><code>FileSnapshot</code></h3>
                     </div>
-                    <p>Tracks file path, unique blob hash, snapshot storage location, and content references at commit time.</p>
+                    <p>Tracks file path, unique blob hash, snapshot storage location, and content references at commit
+                        time.</p>
                     <div class="class-tags">
                         <span><i class="fa-solid fa-file-code"></i> File Path</span>
                         <span><i class="fa-solid fa-fingerprint"></i> Blob Hash</span>
@@ -294,7 +318,8 @@
                         <span class="class-type">C++ Class</span>
                         <h3><code>CommandHandler</code></h3>
                     </div>
-                    <p>Parses user command line arguments, validates option flags (e.g. <code>-m</code>), and returns status output.</p>
+                    <p>Parses user command line arguments, validates option flags (e.g. <code>-m</code>), and returns
+                        status output.</p>
                     <div class="class-tags">
                         <span><i class="fa-solid fa-terminal"></i> Parser</span>
                         <span><i class="fa-solid fa-shield-halved"></i> Validation</span>
@@ -308,21 +333,27 @@
             <div class="section-header text-center">
                 <span class="section-tag highlight-tag"><i class="fa-solid fa-bolt"></i> Interactive Playground</span>
                 <h2 class="section-title">MiniGit Live Visualizer & CLI Sandbox</h2>
-                <p class="section-desc">Execute real MiniGit commands in the terminal simulator and observe instantaneous live updates to the <strong>Commit Linked List</strong>, <strong>Staging Hash Table</strong>, <strong>Rollback Stack</strong>, and <strong>.minigit Storage</strong>.</p>
+                <p class="section-desc">Execute real MiniGit commands in the terminal simulator and observe
+                    instantaneous live updates to the <strong>Commit Linked List</strong>, <strong>Staging Hash
+                        Table</strong>, <strong>Rollback Stack</strong>, and <strong>.minigit Storage</strong>.</p>
             </div>
 
             <!-- Preset Quick Run Buttons -->
             <div class="quick-presets">
                 <span class="presets-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Preset Workflows:</span>
-                <button class="btn btn-preset" onclick="runPresetWorkflow('full')"><i class="fa-solid fa-play"></i> Full Demo Workflow</button>
-                <button class="btn btn-preset" onclick="runPresetWorkflow('init_add_commit')"><i class="fa-solid fa-plus-minus"></i> Track & Commit</button>
-                <button class="btn btn-preset" onclick="runPresetWorkflow('checkout_demo')"><i class="fa-solid fa-arrow-rotate-left"></i> Checkout & Rollback</button>
-                <button class="btn btn-preset btn-reset" onclick="resetSandbox()"><i class="fa-solid fa-rotate"></i> Reset Repo</button>
+                <button class="btn btn-preset" onclick="runPresetWorkflow('full')"><i class="fa-solid fa-play"></i> Full
+                    Demo Workflow</button>
+                <button class="btn btn-preset" onclick="runPresetWorkflow('init_add_commit')"><i
+                        class="fa-solid fa-plus-minus"></i> Track & Commit</button>
+                <button class="btn btn-preset" onclick="runPresetWorkflow('checkout_demo')"><i
+                        class="fa-solid fa-arrow-rotate-left"></i> Checkout & Rollback</button>
+                <button class="btn btn-preset btn-reset" onclick="resetSandbox()"><i class="fa-solid fa-rotate"></i>
+                    Reset Repo</button>
             </div>
 
             <!-- Playground Layout: Terminal Left, Visualizer Right -->
             <div class="simulator-layout">
-                
+
                 <!-- TERMINAL WINDOW -->
                 <div class="terminal-card glass-card">
                     <div class="terminal-header">
@@ -335,35 +366,41 @@
                             <i class="fa-solid fa-terminal"></i> minigit-cli — bash
                         </div>
                         <div class="terminal-actions">
-                            <button id="clearTerminalBtn" class="term-btn" title="Clear Terminal"><i class="fa-solid fa-eraser"></i> Clear</button>
+                            <button id="clearTerminalBtn" class="term-btn" title="Clear Terminal"><i
+                                    class="fa-solid fa-eraser"></i> Clear</button>
                         </div>
                     </div>
 
                     <div id="terminalBody" class="terminal-body">
                         <div class="term-welcome">
                             <pre class="ascii-art">
-  __  __ ___ _  |_ _|  \/  |/ ___|_ _|_   _|
- |  \/  |_ _| \|| || | | |\/| | |  _ | |  | |  
- | |\/| || || .` || | | |  | | |_| || |  | |  
- |_|  |_|___|_|\_|_|___|_|  |_|\____|___| |_|  
+//      __  __ ___ _   _ ___ ____ ___ _____ 
+//     |  \/  |_ _| \ | |_ _/ ___|_ _|_   _|
+//     | |\/| || ||  \| || | |  _ | |  | |  
+//     | |  | || || |\  || | |_| || |  | |  
+//     |_|  |_|___|_| \_|___\____|___| |_|  
+//                                           
                             </pre>
                             <p class="welcome-text">MiniGit Interactive Terminal Simulator v1.0</p>
-                            <p class="help-hint">Type <span class="cmd-text">help</span> to view available commands, or click quick buttons above.</p>
+                            <p class="help-hint">Type <span class="cmd-text">help</span> to view available commands, or
+                                click quick buttons above.</p>
                         </div>
                         <div id="terminalOutput"></div>
                     </div>
 
                     <!-- Input Line -->
                     <div class="terminal-input-line">
-                        <span class="term-prompt">minigit <span class="term-branch">(main)</span> $</span>
-                        <input type="text" id="cliInput" placeholder="type a command e.g. 'minigit init'..." autocomplete="off" spellcheck="false">
-                        <button id="cliSendBtn" class="btn btn-primary btn-icon"><i class="fa-solid fa-paper-plane"></i></button>
+                        <span class="term-prompt">strange <span class="term-branch">(main)</span> $</span>
+                        <input type="text" id="cliInput" placeholder="type a command e.g. 'minigit init'..."
+                            autocomplete="off" spellcheck="false">
+                        <button id="cliSendBtn" class="btn btn-primary btn-icon"><i
+                                class="fa-solid fa-paper-plane"></i></button>
                     </div>
                 </div>
 
                 <!-- LIVE DATA STRUCTURE VISUALIZER PANEL -->
                 <div class="visualizer-card glass-card">
-                    
+
                     <!-- Visualizer Tab Controls -->
                     <div class="viz-header">
                         <div class="viz-tabs">
@@ -388,7 +425,8 @@
                         <!-- VIEW 1: LINKED LIST (COMMITS) -->
                         <div id="viz-linkedlist" class="viz-view active">
                             <div class="view-status-bar">
-                                <span class="status-indicator"><i class="fa-solid fa-circle text-emerald"></i> Structure: Singly Linked List</span>
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-emerald"></i>
+                                    Structure: Singly Linked List</span>
                                 <span id="commitCountBadge" class="info-badge">0 Commits</span>
                             </div>
 
@@ -406,7 +444,8 @@
                         <!-- VIEW 2: HASH TABLE (STAGING & BLOBS) -->
                         <div id="viz-hashtable" class="viz-view">
                             <div class="view-status-bar">
-                                <span class="status-indicator"><i class="fa-solid fa-circle text-purple"></i> Structure: Hash Table & Staging Index</span>
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-purple"></i> Structure:
+                                    Hash Table & Staging Index</span>
                                 <span id="stagedCountBadge" class="info-badge">0 Files Staged</span>
                             </div>
 
@@ -424,7 +463,8 @@
                         <!-- VIEW 3: STACK (ROLLBACK ENGINE) -->
                         <div id="viz-stack" class="viz-view">
                             <div class="view-status-bar">
-                                <span class="status-indicator"><i class="fa-solid fa-circle text-amber"></i> Structure: Rollback LIFO Stack</span>
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-amber"></i> Structure:
+                                    Rollback LIFO Stack</span>
                                 <span id="stackDepthBadge" class="info-badge">Stack Depth: 0</span>
                             </div>
 
@@ -433,7 +473,8 @@
                                     <div class="empty-state">
                                         <i class="fa-solid fa-layer-group"></i>
                                         <p>Rollback stack is empty.</p>
-                                        <span>Executing <code>minigit checkout &lt;commit-id&gt;</code> pushes current state onto stack.</span>
+                                        <span>Executing <code>minigit checkout &lt;commit-id&gt;</code> pushes current
+                                            state onto stack.</span>
                                     </div>
                                 </div>
                             </div>
@@ -442,7 +483,8 @@
                         <!-- VIEW 4: .MINIGIT FILE SYSTEM -->
                         <div id="viz-filesystem" class="viz-view">
                             <div class="view-status-bar">
-                                <span class="status-indicator"><i class="fa-solid fa-circle text-cyan"></i> Structure: Local Metadata Directory</span>
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-cyan"></i> Structure:
+                                    Local Metadata Directory</span>
                                 <span id="fsStatusBadge" class="info-badge">Not Initialized</span>
                             </div>
 
@@ -473,20 +515,23 @@
 
             <!-- Command Matrix Cards Grid -->
             <div class="commands-grid">
-                
+
                 <!-- init -->
                 <div class="glass-card command-card">
                     <div class="cmd-header">
                         <code class="cmd-name">minigit init</code>
                         <span class="cmd-badge">Repository Setup</span>
                     </div>
-                    <p class="cmd-desc">Creates a new local repository by building the <code>.minigit/</code> directory structure, initializing <code>HEAD</code> pointer and empty staging index.</p>
+                    <p class="cmd-desc">Creates a new local repository by building the <code>.minigit/</code> directory
+                        structure, initializing <code>HEAD</code> pointer and empty staging index.</p>
                     <div class="cmd-syntax">
                         <span>Syntax:</span> <code>./minigit init</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit init')"><i class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit init')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit init')"><i
+                                class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit init')"><i
+                                class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -496,13 +541,16 @@
                         <code class="cmd-name">minigit add</code>
                         <span class="cmd-badge">File Tracking</span>
                     </div>
-                    <p class="cmd-desc">Selects specified files for tracking. Generates content hash mappings and updates the staging area hash table.</p>
+                    <p class="cmd-desc">Selects specified files for tracking. Generates content hash mappings and
+                        updates the staging area hash table.</p>
                     <div class="cmd-syntax">
                         <span>Syntax:</span> <code>./minigit add &lt;file&gt;</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit add main.cpp')"><i class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit add main.cpp')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit add main.cpp')"><i
+                                class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit add main.cpp')"><i
+                                class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -512,13 +560,18 @@
                         <code class="cmd-name">minigit commit</code>
                         <span class="cmd-badge">Version Snapshot</span>
                     </div>
-                    <p class="cmd-desc">Saves current version of tracked files with a timestamped message into <code>.minigit/objects/</code>, appending a new node to the history linked list.</p>
+                    <p class="cmd-desc">Saves current version of tracked files with a timestamped message into
+                        <code>.minigit/objects/</code>, appending a new node to the history linked list.</p>
                     <div class="cmd-syntax">
                         <span>Syntax:</span> <code>./minigit commit -m "message"</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit commit -m &quot;Initial commit&quot;')"><i class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit commit -m &quot;Feature update&quot;')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary"
+                            onclick="copyText('./minigit commit -m &quot;Initial commit&quot;')"><i
+                                class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary"
+                            onclick="executeInSandbox('minigit commit -m &quot;Feature update&quot;')"><i
+                                class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -528,13 +581,16 @@
                         <code class="cmd-name">minigit log</code>
                         <span class="cmd-badge">History Inspection</span>
                     </div>
-                    <p class="cmd-desc">Traverses the Singly Linked List from HEAD back to root commit, displaying commit hashes, timestamps, and messages.</p>
+                    <p class="cmd-desc">Traverses the Singly Linked List from HEAD back to root commit, displaying
+                        commit hashes, timestamps, and messages.</p>
                     <div class="cmd-syntax">
                         <span>Syntax:</span> <code>./minigit log</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit log')"><i class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit log')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit log')"><i
+                                class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit log')"><i
+                                class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -544,13 +600,16 @@
                         <code class="cmd-name">minigit checkout</code>
                         <span class="cmd-badge">State Restoration</span>
                     </div>
-                    <p class="cmd-desc">Restores repository files to a previously saved commit snapshot. Pushes pre-restoration working state onto the Rollback Stack.</p>
+                    <p class="cmd-desc">Restores repository files to a previously saved commit snapshot. Pushes
+                        pre-restoration working state onto the Rollback Stack.</p>
                     <div class="cmd-syntax">
                         <span>Syntax:</span> <code>./minigit checkout &lt;commit-id&gt;</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit checkout c1')"><i class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit checkout c1')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit checkout c1')"><i
+                                class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit checkout c1')"><i
+                                class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -560,13 +619,16 @@
                         <code class="cmd-name">minigit rollback</code>
                         <span class="cmd-badge">Undo Restoration</span>
                     </div>
-                    <p class="cmd-desc">Pops the top state snapshot off the Rollback Stack and restores repository files back to the state prior to the last <code>checkout</code>.</p>
+                    <p class="cmd-desc">Pops the top state snapshot off the Rollback Stack and restores repository files
+                        back to the state prior to the last <code>checkout</code>.</p>
                     <div class="cmd-syntax">
                         <span>Syntax:</span> <code>./minigit rollback</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit rollback')"><i class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit rollback')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit rollback')"><i
+                                class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit rollback')"><i
+                                class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -576,46 +638,46 @@
         <!-- PROJECT ROADMAP SECTION -->
         <section id="roadmap" class="section roadmap-section">
             <div class="section-header text-center">
-                <span class="section-tag">Development Phases</span>
+                <span class="section-tag">Development Lifecycle</span>
                 <h2 class="section-title">Project Roadmap</h2>
-                <p class="section-desc">MiniGit follows a disciplined three-phase development lifecycle.</p>
+                <p class="section-desc">MiniGit follows a disciplined three-phase development lifecycle for PBL in DS CPP. Currently in <strong>Phase 1</strong>.</p>
             </div>
 
             <div class="roadmap-timeline">
-                
-                <!-- Phase 1 -->
-                <div class="roadmap-item completed">
-                    <div class="roadmap-marker"><i class="fa-solid fa-check"></i></div>
-                    <div class="roadmap-content glass-card">
-                        <div class="roadmap-header">
-                            <span class="phase-badge phase-done">Phase 1 — Completed</span>
-                            <h3>Planning & System Design</h3>
-                        </div>
-                        <p>Defined command scope, folder structure, class relationships, and data structure choices. Finalized flow specs for `init`, `add`, `commit`, `log`, `checkout`, and `rollback`.</p>
-                    </div>
-                </div>
 
-                <!-- Phase 2 -->
+                <!-- Phase 1 (CURRENT) -->
                 <div class="roadmap-item active">
-                    <div class="roadmap-marker pulse"><i class="fa-solid fa-spinner fa-spin"></i></div>
+                    <div class="roadmap-marker pulse"><i class="fa-solid fa-compass"></i></div>
                     <div class="roadmap-content glass-card glow-border">
                         <div class="roadmap-header">
-                            <span class="phase-badge phase-active">Phase 2 — Active Development</span>
-                            <h3>Repository & Commit Core</h3>
+                            <span class="phase-badge phase-active"><i class="fa-solid fa-circle-dot"></i> Phase 1 — Current Active Phase</span>
+                            <h3>Planning, Architecture & System Design</h3>
                         </div>
-                        <p>Implementing `init`, `add`, `commit`, and `log` in C++. Building the `.minigit` object storage layer, linked list history graph, and hash table index lookup.</p>
+                        <p>Defining system architecture, command syntax grammar, repository folder hierarchy (<code>.minigit/</code>), class contracts, and backing data structures. Finalizing execution flow diagrams for <code>init</code>, <code>add</code>, <code>commit</code>, <code>log</code>, <code>checkout</code>, and <code>rollback</code>.</p>
                     </div>
                 </div>
 
-                <!-- Phase 3 -->
+                <!-- Phase 2 (UPCOMING) -->
                 <div class="roadmap-item upcoming">
                     <div class="roadmap-marker"><i class="fa-solid fa-clock"></i></div>
                     <div class="roadmap-content glass-card">
                         <div class="roadmap-header">
-                            <span class="phase-badge phase-next">Phase 3 — Upcoming</span>
+                            <span class="phase-badge phase-next">Phase 2 — Upcoming Phase</span>
+                            <h3>Repository & Commit Core (C++)</h3>
+                        </div>
+                        <p>Implementing <code>init</code>, <code>add</code>, <code>commit</code>, and <code>log</code> in modern C++. Constructing <code>.minigit/objects/</code> storage, Singly Linked List commit history graph, and Hash Table staging index.</p>
+                    </div>
+                </div>
+
+                <!-- Phase 3 (PLANNED) -->
+                <div class="roadmap-item upcoming">
+                    <div class="roadmap-marker"><i class="fa-solid fa-hourglass-start"></i></div>
+                    <div class="roadmap-content glass-card">
+                        <div class="roadmap-header">
+                            <span class="phase-badge phase-next">Phase 3 — Planned Phase</span>
                             <h3>Restoration, Stack Engine & Verification</h3>
                         </div>
-                        <p>Implementing `checkout` and `rollback` backed by stack data structures. Comprehensive edge-case testing, performance benchmarking, project report, and live demo preparation.</p>
+                        <p>Implementing <code>checkout</code> and <code>rollback</code> backed by LIFO stack data structures. Comprehensive edge-case validation, performance benchmarking, project report finalization, and live demonstration.</p>
                     </div>
                 </div>
 
@@ -627,7 +689,7 @@
             <div class="section-header text-center">
                 <span class="section-tag">System Boundaries</span>
                 <h2 class="section-title">Scope & Assumptions</h2>
-                <p class="section-desc">Focusing strictly on core concepts guarantees stability and educational clarity.</p>
+                <p class="section-desc">Focusing strictly on core concepts guarantees stability and educational clarity for PBL in DS CPP.</p>
             </div>
 
             <div class="scope-grid">
@@ -657,9 +719,9 @@
         <!-- TEAM SECTION -->
         <section id="team" class="section team-section">
             <div class="section-header text-center">
-                <span class="section-tag">Development Team</span>
+                <span class="section-tag">Project Team</span>
                 <h2 class="section-title">Team Blaze</h2>
-                <p class="section-desc">Developed for Course DSCPP-III-2026-T296 · CSE (AI&ML)</p>
+                <p class="section-desc">Phase 1 Architecture, Planning & Design Contributors · PBL in DS CPP · DSCPP-III-2026-T296 · CSE (AI&ML)</p>
             </div>
 
             <div class="team-grid">
@@ -668,8 +730,9 @@
                         <span>AG</span>
                     </div>
                     <h3>Abhinesh Gangwar</h3>
-                    <span class="team-role role-lead"><i class="fa-solid fa-crown"></i> Team Lead</span>
-                    <p>Architecture design, repository manager logic, and overall system integration.</p>
+                    <span class="team-role role-lead"><i class="fa-solid fa-crown"></i> Team Lead & Systems Architect</span>
+                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Contribution</p>
+                    <p>System architecture design, modular 5-layer pipeline definition, project scoping, and command dispatch flow orchestration.</p>
                 </div>
 
                 <div class="glass-card team-card">
@@ -677,8 +740,9 @@
                         <span>SJ</span>
                     </div>
                     <h3>Sparsh Jain</h3>
-                    <span class="team-role"><i class="fa-solid fa-code"></i> Core Developer</span>
-                    <p>Command parsing CLI interface and Hash Table indexing implementation.</p>
+                    <span class="team-role"><i class="fa-solid fa-code"></i> CLI & Staging Designer</span>
+                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Contribution</p>
+                    <p>Command-line interface grammar specification (<code>init</code>, <code>add</code>, <code>commit</code>), argument validation rules, and Hash Table staging index design.</p>
                 </div>
 
                 <div class="glass-card team-card">
@@ -686,8 +750,9 @@
                         <span>KB</span>
                     </div>
                     <h3>Krish Bajaj</h3>
-                    <span class="team-role"><i class="fa-solid fa-link"></i> Data Structure Specialist</span>
-                    <p>Singly Linked List commit history graph & pointer state management.</p>
+                    <span class="team-role"><i class="fa-solid fa-link"></i> Commit Graph Modeler</span>
+                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Contribution</p>
+                    <p>Singly Linked List data structure modeling for linear commit history, pointer transition design, and commit node metadata schema.</p>
                 </div>
 
                 <div class="glass-card team-card">
@@ -695,40 +760,92 @@
                         <span>SJ</span>
                     </div>
                     <h3>Snehil Joshi</h3>
-                    <span class="team-role"><i class="fa-solid fa-layer-group"></i> QA & Stack Engineer</span>
-                    <p>Rollback stack implementation, file system I/O, and testing validation.</p>
+                    <span class="team-role"><i class="fa-solid fa-layer-group"></i> State & Storage Lead</span>
+                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Contribution</p>
+                    <p>Rollback LIFO stack mechanism design, <code>.minigit/</code> directory storage specification, and Phase 1 project documentation compilation.</p>
                 </div>
             </div>
         </section>
 
-        <!-- DELIVERABLES & REFERENCES SECTION -->
-        <section class="section deliverables-section">
+        <!-- REPORTS & PRESENTATION SECTION (INTERACTIVE PDF VISUALIZER) -->
+        <section id="reports" class="section reports-section">
             <div class="section-header text-center">
-                <span class="section-tag">Documentation & References</span>
-                <h2 class="section-title">Academic Citations & Artifacts</h2>
-                <p class="section-desc">Key references powering the data structure choices in MiniGit.</p>
+                <span class="section-tag"><i class="fa-solid fa-file-pdf"></i> Project Deliverables</span>
+                <h2 class="section-title">Reports & Presentation Deck</h2>
+                <p class="section-desc">Interactive live visualizer for official project documentation directly from the <code>/Reports</code> directory.</p>
             </div>
 
-            <div class="deliverables-grid">
-                <div class="glass-card deliverable-card">
-                    <div class="deliv-icon"><i class="fa-solid fa-file-pdf text-red"></i></div>
-                    <h3>Project Report</h3>
-                    <p>Comprehensive design report covering class diagrams, data structure analysis, and benchmark test results.</p>
-                    <a href="Reports/report.pdf" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-download"></i> View Report PDF</a>
+            <!-- Interactive PDF Visualizer Card -->
+            <div class="glass-card pdf-viewer-card" id="pdfViewerContainer">
+                <div class="pdf-viewer-header">
+                    <div class="pdf-nav-tabs">
+                        <button class="pdf-tab active" data-doc="report">
+                            <i class="fa-solid fa-file-lines text-cyan"></i> Project Report (report.pdf)
+                        </button>
+                        <button class="pdf-tab" data-doc="ppt">
+                            <i class="fa-solid fa-file-powerpoint text-purple"></i> Presentation Deck (ppt.pdf)
+                        </button>
+                    </div>
+
+                    <div class="pdf-header-actions">
+                        <a id="pdfOpenTabBtn" href="Reports/report.pdf" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" title="Open document in new browser tab">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Tab
+                        </a>
+                        <a id="pdfDownloadBtn" href="Reports/report.pdf" download="MiniGit-Phase1-Report.pdf" class="btn btn-secondary btn-sm" title="Download document">
+                            <i class="fa-solid fa-download"></i> Download
+                        </a>
+                        <button id="pdfFullscreenBtn" class="btn btn-secondary btn-sm" title="Toggle Fullscreen">
+                            <i class="fa-solid fa-expand"></i> Fullscreen
+                        </button>
+                    </div>
                 </div>
 
+                <div class="pdf-doc-meta">
+                    <div class="doc-meta-info">
+                        <h3 id="pdfDocTitle">MiniGit Phase 1 Design Report</h3>
+                        <p id="pdfDocDesc">Comprehensive specification covering problem motivation, system architecture, data structure analysis, class designs, and execution flows.</p>
+                    </div>
+                    <div class="doc-meta-badges">
+                        <span class="meta-badge"><i class="fa-solid fa-flag"></i> Phase 1</span>
+                        <span class="meta-badge"><i class="fa-solid fa-users"></i> Team Blaze</span>
+                        <span class="meta-badge"><i class="fa-solid fa-graduation-cap"></i> PBL in DS CPP</span>
+                    </div>
+                </div>
+
+                <!-- Embedded PDF Frame Container -->
+                <div class="pdf-frame-wrapper">
+                    <iframe id="pdfFrame" src="Reports/report.pdf#toolbar=1&view=FitH" class="pdf-frame" title="MiniGit Documentation Viewer"></iframe>
+                </div>
+
+                <div class="pdf-viewer-footer">
+                    <span><i class="fa-solid fa-circle-info text-cyan"></i> Serving <code>Reports/report.pdf</code> and <code>Reports/ppt.pdf</code>. Use the toolbar inside the viewer to zoom, navigate pages, or view bookmarks.</span>
+                </div>
+            </div>
+
+            <!-- Academic Citations & References -->
+            <div class="deliverables-grid">
                 <div class="glass-card deliverable-card">
                     <div class="deliv-icon"><i class="fa-solid fa-book text-cyan"></i></div>
                     <h3>Pro Git (2nd Edition)</h3>
-                    <p>Scott Chacon & Ben Straub — Foundational conceptual guide for Git internal object storage mechanisms.</p>
-                    <a href="https://git-scm.com/book/en/v2" target="_blank" class="btn btn-sm btn-link">Visit Reference <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                    <p>Scott Chacon & Ben Straub — Foundational conceptual guide for Git internal object storage mechanisms and directed acyclic graphs.</p>
+                    <a href="https://git-scm.com/book/en/v2" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-link">Visit Reference
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                 </div>
 
                 <div class="glass-card deliverable-card">
                     <div class="deliv-icon"><i class="fa-solid fa-graduation-cap text-purple"></i></div>
                     <h3>Open Data Structures (C++)</h3>
-                    <p>Pat Morin — Algorithmic foundation for memory allocation, hash table buckets, and stack implementations.</p>
-                    <a href="https://opendatastructures.org/ods-cpp/" target="_blank" class="btn btn-sm btn-link">Visit Reference <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                    <p>Pat Morin — Algorithmic foundation for pointer memory allocation, hash table buckets, and stack implementations in C++.</p>
+                    <a href="https://opendatastructures.org/ods-cpp/" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-link">Visit
+                        Reference <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                </div>
+
+                <div class="glass-card deliverable-card">
+                    <div class="deliv-icon"><i class="fa-solid fa-laptop-code text-emerald"></i></div>
+                    <h3>NPTEL IIT Delhi DS Course</h3>
+                    <p>Data Structures and Algorithms course reference for linear linked lists, hash collision resolution, and LIFO state management.</p>
+                    <a href="https://nptel.ac.in/courses/106102064" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-link">Visit Reference
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                 </div>
             </div>
         </section>
@@ -741,13 +858,13 @@
             <div class="footer-brand">
                 <div class="logo-icon"><i class="fa-solid fa-code-commit"></i></div>
                 <div>
-                    <strong>MiniGit</strong>
-                    <p>Educational C++ Version Control System</p>
+                    <strong>MiniGit — PBL in DS CPP</strong>
+                    <p>Lightweight Educational C++ Version Control System</p>
                 </div>
             </div>
             <div class="footer-meta">
                 <p>Team Blaze · DSCPP-III-2026-T296 · CSE (AI&ML)</p>
-                <p>© 2026 MiniGit Educational Project. Built with modern motion web standards.</p>
+                <p>© 2026 MiniGit Educational Project. Phase 1 System Design & Specification.</p>
             </div>
         </div>
     </footer>
@@ -755,4 +872,5 @@
     <!-- Custom JavaScript -->
     <script src="script.js"></script>
 </body>
+
 </html>

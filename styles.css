@@ -6,35 +6,42 @@
    1. CSS VARIABLES & COLOR PALETTES (DARK & LIGHT THEMES)
    -------------------------------------------------------------------------- */
 :root {
-    /* Color Tokens (Dark Theme Default) */
-    --bg-main: #090d16;
-    --bg-secondary: #0f172a;
-    --bg-card: rgba(18, 26, 44, 0.65);
-    --bg-card-hover: rgba(28, 40, 68, 0.75);
-    --bg-glass: rgba(15, 23, 42, 0.75);
+    /* Color Tokens (Dark Theme Default - Minimal Antigravity) */
+    --bg-main: #07090e;
+    --bg-secondary: #0d121f;
+    --bg-card: rgba(14, 20, 34, 0.65);
+    --bg-card-hover: rgba(20, 30, 52, 0.8);
+    --bg-glass: rgba(9, 13, 22, 0.82);
     --border-color: rgba(255, 255, 255, 0.08);
-    --border-glow: rgba(0, 242, 254, 0.3);
+    --border-hover: rgba(255, 255, 255, 0.16);
+    --border-glow: rgba(0, 242, 254, 0.25);
 
     /* Text Colors */
     --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --text-dark: #0f172a;
+    --text-muted: #8896ab;
+    --text-subtle: #4e5d78;
+    --text-dark: #07090e;
 
     /* Accent & Brand Colors */
     --cyan: #00f2fe;
-    --cyan-glow: rgba(0, 242, 254, 0.4);
+    --cyan-dim: rgba(0, 242, 254, 0.12);
+    --cyan-glow: rgba(0, 242, 254, 0.25);
     --purple: #a855f7;
-    --purple-glow: rgba(168, 85, 247, 0.4);
+    --purple-dim: rgba(168, 85, 247, 0.12);
+    --purple-glow: rgba(168, 85, 247, 0.25);
     --blue: #3b82f6;
     --emerald: #10b981;
-    --emerald-glow: rgba(16, 185, 129, 0.4);
+    --emerald-dim: rgba(16, 185, 129, 0.12);
+    --emerald-glow: rgba(16, 185, 129, 0.25);
     --amber: #f59e0b;
+    --amber-dim: rgba(245, 158, 11, 0.12);
     --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.12);
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-    --gradient-purple: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
-    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%);
+    --gradient-primary: linear-gradient(135deg, #00f2fe 0%, #38bdf8 100%);
+    --gradient-purple: linear-gradient(135deg, #c084fc 0%, #818cf8 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
 
     /* Typography */
     --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -42,11 +49,13 @@
     --font-mono: 'JetBrains Mono', monospace;
 
     /* Shadows & Transitions */
-    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 25px rgba(0, 242, 254, 0.25);
-    --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-glow: 0 0 20px rgba(0, 242, 254, 0.15);
+    --transition-fast: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-normal: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 
     /* Layout Constraints */
     --container-max: 1240px;
@@ -57,18 +66,20 @@
 :root.light-theme {
     --bg-main: #f8fafc;
     --bg-secondary: #f1f5f9;
-    --bg-card: rgba(255, 255, 255, 0.85);
-    --bg-card-hover: rgba(255, 255, 255, 0.95);
-    --bg-glass: rgba(255, 255, 255, 0.85);
-    --border-color: rgba(0, 0, 0, 0.08);
-    --border-glow: rgba(0, 162, 255, 0.4);
+    --bg-card: rgba(255, 255, 255, 0.88);
+    --bg-card-hover: #ffffff;
+    --bg-glass: rgba(255, 255, 255, 0.88);
+    --border-color: rgba(15, 23, 42, 0.08);
+    --border-hover: rgba(15, 23, 42, 0.16);
+    --border-glow: rgba(0, 162, 255, 0.25);
 
     --text-main: #0f172a;
     --text-muted: #64748b;
+    --text-subtle: #94a3b8;
 
-    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(240, 244, 248, 0.7) 100%);
-    --shadow-lg: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
-    --shadow-glow: 0 0 25px rgba(0, 162, 255, 0.2);
+    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.85) 100%);
+    --shadow-lg: 0 16px 36px -12px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04);
+    --shadow-glow: 0 0 20px rgba(0, 162, 255, 0.12);
 }
 
 /* --------------------------------------------------------------------------
@@ -119,35 +130,35 @@ a {
 .glow-orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(120px);
-    opacity: 0.25;
-    animation: floatOrb 18s ease-in-out infinite alternate;
+    filter: blur(140px);
+    opacity: 0.12;
+    animation: floatOrb 22s ease-in-out infinite alternate;
 }
 
 .orb-1 {
-    width: 500px;
-    height: 500px;
+    width: 480px;
+    height: 480px;
     background: var(--cyan);
-    top: -100px;
+    top: -80px;
     left: 10%;
 }
 
 .orb-2 {
-    width: 600px;
-    height: 600px;
+    width: 520px;
+    height: 520px;
     background: var(--purple);
     top: 40%;
-    right: -100px;
-    animation-delay: -6s;
+    right: -80px;
+    animation-delay: -7s;
 }
 
 .orb-3 {
-    width: 450px;
-    height: 450px;
+    width: 420px;
+    height: 420px;
     background: var(--emerald);
-    bottom: -100px;
-    left: 30%;
-    animation-delay: -12s;
+    bottom: -80px;
+    left: 25%;
+    animation-delay: -14s;
 }
 
 .grid-overlay {
@@ -156,7 +167,7 @@ a {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
     background-size: 32px 32px;
 }
 
@@ -258,7 +269,7 @@ a {
 .nav-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .theme-toggle-btn {
@@ -266,19 +277,40 @@ a {
     height: 38px;
     border-radius: 10px;
     border: 1px solid var(--border-color);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.04);
     color: var(--text-main);
     cursor: pointer;
     display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: var(--transition-fast);
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+}
+
+.mobile-menu-toggle {
+    display: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-main);
+    cursor: pointer;
     align-items: center;
     justify-content: center;
     font-size: 1.1rem;
     transition: var(--transition-fast);
 }
 
-.theme-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: scale(1.05);
+.mobile-menu-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--border-hover);
 }
 
 /* --------------------------------------------------------------------------
@@ -1417,14 +1449,184 @@ a {
     color: var(--cyan);
 }
 
+.team-phase-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(0, 242, 254, 0.2);
+}
+
 .team-card p {
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     color: var(--text-muted);
+    line-height: 1.5;
 }
 
 /* --------------------------------------------------------------------------
-   14. DELIVERABLES & REFERENCES
+   14. REPORTS & PDF VISUALIZER COMPONENT
    -------------------------------------------------------------------------- */
+.reports-section {
+    position: relative;
+}
+
+.pdf-viewer-card {
+    padding: 0;
+    overflow: hidden;
+    margin-bottom: 40px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+}
+
+.pdf-viewer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: rgba(0, 0, 0, 0.35);
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+:root.light-theme .pdf-viewer-header {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.pdf-nav-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pdf-tab {
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition-fast);
+}
+
+.pdf-tab:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.pdf-tab.active {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.pdf-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pdf-doc-meta {
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.015);
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.doc-meta-info h3 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--text-main);
+}
+
+.doc-meta-info p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    max-width: 680px;
+}
+
+.doc-meta-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.meta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+.pdf-frame-wrapper {
+    position: relative;
+    width: 100%;
+    height: 720px;
+    background: #0d121f;
+}
+
+:root.light-theme .pdf-frame-wrapper {
+    background: #e2e8f0;
+}
+
+.pdf-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+.pdf-viewer-footer {
+    padding: 12px 24px;
+    background: rgba(0, 0, 0, 0.25);
+    border-top: 1px solid var(--border-color);
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.pdf-viewer-footer code {
+    color: var(--cyan);
+    background: rgba(0, 242, 254, 0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
 .deliverables-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1516,7 +1718,7 @@ a {
 }
 
 /* --------------------------------------------------------------------------
-   17. RESPONSIVE BREAKPOINTS
+   17. RESPONSIVE BREAKPOINTS & ACCESSIBILITY
    -------------------------------------------------------------------------- */
 @media (max-width: 1024px) {
     .simulator-layout, .problem-solution-grid, .scope-grid {
@@ -1525,14 +1727,43 @@ a {
     .hero-title {
         font-size: 3rem;
     }
+    .pdf-frame-wrapper {
+        height: 600px;
+    }
 }
 
 @media (max-width: 768px) {
-    .nav-menu {
-        display: none; /* Can be expanded with a mobile menu toggle if needed */
+    .mobile-menu-toggle {
+        display: flex;
     }
+
+    .nav-launch-btn {
+        display: none;
+    }
+
+    .nav-menu {
+        display: none;
+        position: absolute;
+        top: var(--header-height);
+        left: 0;
+        width: 100%;
+        background: var(--bg-glass);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border-color);
+        padding: 16px 20px;
+        flex-direction: column;
+        gap: 8px;
+        box-shadow: var(--shadow-lg);
+        animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .nav-menu.open {
+        display: flex;
+    }
+
     .hero-title {
-        font-size: 2.3rem;
+        font-size: 2.2rem;
     }
     .hero-subtitle {
         font-size: 1rem;
@@ -1540,11 +1771,35 @@ a {
     .section-title {
         font-size: 1.8rem;
     }
+    .pdf-frame-wrapper {
+        height: 480px;
+    }
+    .pdf-viewer-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .pdf-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
     .footer-container {
         flex-direction: column;
         text-align: center;
     }
     .footer-meta {
         text-align: center;
+    }
+}
+
+/* Accessibility: Respect Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    .glow-orb {
+        animation: none !important;
     }
 }
