@@ -7,10 +7,28 @@
     <title>MiniGit — Fast Version Control System with C++ & Core Data Structures</title>
     <meta name="description"
         content="MiniGit is a lightning-fast, zero-dependency local version control system written in C++ demonstrating Dual Trie .minigitignore, Hash Table staging, Singly Linked List history, and LIFO Stack rollbacks.">
+    <meta name="theme-color" content="#0c0d12">
+    <link rel="canonical" href="https://abhinesh.codes/MiniGit/">
 
-    <!-- Google Fonts -->
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238b5cf6'%3E%3Cpath d='M12 2a4 4 0 0 0-4 4v3.17A4.002 4.002 0 0 0 6 13a4 4 0 0 0 2 3.46V18a4 4 0 0 0 8 0v-1.54A4.002 4.002 0 0 0 18 13a4.002 4.002 0 0 0-2-3.83V6a4 4 0 0 0-4-4zm0 2a2 2 0 0 1 2 2v3h-4V6a2 2 0 0 1 2-2zm-2 9a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm2 7a2 2 0 0 1-2-2v-1h4v1a2 2 0 0 1-2 2z'/%3E%3C/svg%3E">
+
+    <!-- Open Graph & Social Cards -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://abhinesh.codes/MiniGit/">
+    <meta property="og:title" content="MiniGit — Fast Version Control System with C++ & Core Data Structures">
+    <meta property="og:description" content="Lightning-fast, zero-dependency local VCS in C++ with Dual Trie prefix trees and Linked List history.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="MiniGit — Fast Version Control System with C++">
+    <meta name="twitter:description" content="Lightning-fast, zero-dependency local VCS in C++ with Dual Trie prefix trees and Linked List history.">
+
+    <!-- Resource Preconnects for High-Speed Asset Delivery -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+
+    <!-- Google Fonts -->
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap"
         rel="stylesheet">
@@ -97,7 +115,7 @@
 
                 <p class="hero-subtitle animate-fade-in delay-2">
                     A zero-dependency local VCS crafted in C++ for maximum transparency and execution speed. Built with a 
-                    <strong>Dual Trie</strong> for $O(L)$ ignore pattern filtering, a persistent <strong>Staging Index</strong>, 
+                    <strong>Dual Trie</strong> for <em>O</em>(<em>L</em>) ignore pattern filtering, a persistent <strong>Staging Index</strong>, 
                     a linear <strong>Linked List</strong> commit graph, and <strong>LIFO Stack</strong> rollbacks.
                 </p>
 
@@ -152,7 +170,7 @@
                         <i class="fa-solid fa-sitemap text-cyan"></i>
                         <div>
                             <strong>Dual Trie Engine</strong>
-                            <span>$O(L)$ .minigitignore Rules</span>
+                            <span><em>O</em>(<em>L</em>) .minigitignore Rules</span>
                         </div>
                     </div>
                     <div class="stat-pill">
@@ -192,7 +210,7 @@
                 <!-- Pillar 1: Dual Trie Ignore Engine -->
                 <div class="glass-card feature-card glow-border">
                     <div class="card-status-badge badge-success">
-                        <i class="fa-solid fa-bolt"></i> $O(L)$ Performance
+                        <i class="fa-solid fa-bolt"></i> <em>O</em>(<em>L</em>) Performance
                     </div>
                     <h3>Dual Trie .minigitignore</h3>
                     <p>Unlike traditional string-scanning ignore lists, MiniGit compiles ignore patterns into two specialized prefix trees: a <strong>Forward Directory Trie</strong> for prefixes (e.g. <code>build/</code>) and a <strong>Reversed Suffix Trie</strong> for file extensions (e.g. <code>*.log</code>).</p>
@@ -306,7 +324,7 @@
                     </div>
 
                     <ul class="card-list success-list">
-                        <li><i class="fa-solid fa-circle-check"></i> Dual Trie ignore filtering for $O(L)$ rule matching</li>
+                        <li><i class="fa-solid fa-circle-check"></i> Dual Trie ignore filtering for <em>O</em>(<em>L</em>) rule matching</li>
                         <li><i class="fa-solid fa-circle-check"></i> Clean linear history graph via Linked List</li>
                         <li><i class="fa-solid fa-circle-check"></i> Instant snapshot lookups via Hash Tables</li>
                         <li><i class="fa-solid fa-circle-check"></i> Safe state rollback engine using Stack</li>
@@ -342,7 +360,7 @@
                         <div class="layer-number">02</div>
                         <div class="layer-info">
                             <h4>Ignore Module & Dual Trie</h4>
-                            <p>Parses <code>.minigitignore</code> into forward and reverse prefix trees for $O(L)$ path filtering.</p>
+                            <p>Parses <code>.minigitignore</code> into forward and reverse prefix trees for <em>O</em>(<em>L</em>) path filtering.</p>
                         </div>
                         <div class="layer-badge"><i class="fa-solid fa-sitemap"></i> Trie.cpp</div>
                     </div>
@@ -579,7 +597,7 @@
                         <!-- VIEW 3: DUAL TRIE (.minigitignore PREFIX TREES) -->
                         <div id="viz-trie" class="viz-view" role="tabpanel" aria-labelledby="tab-trie">
                             <div class="view-status-bar">
-                                <span class="status-indicator"><i class="fa-solid fa-circle text-amber"></i> Structure: Dual Prefix Trie Engine ($O(L)$ Matching)</span>
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-amber"></i> Structure: Dual Prefix Trie Engine (<em>O</em>(<em>L</em>) Matching)</span>
                                 <span id="trieCountBadge" class="info-badge">0 Rules</span>
                             </div>
 
@@ -733,7 +751,7 @@
                         <code class="cmd-name">minigit ignore -v</code>
                         <span class="cmd-badge">Trie Diagnostic</span>
                     </div>
-                    <p class="cmd-desc">Tests a path against the Dual Trie prefix tree in $O(L)$ time, reporting exact ignore pattern match and line number in <code>.minigitignore</code>.</p>
+                    <p class="cmd-desc">Tests a path against the Dual Trie prefix tree in <em>O</em>(<em>L</em>) time, reporting exact ignore pattern match and line number in <code>.minigitignore</code>.</p>
                     <div class="cmd-syntax">
                         <span>Syntax:</span> <code>minigit ignore -v &lt;path&gt;</code>
                     </div>
@@ -904,7 +922,7 @@
                             <span class="phase-badge phase-done"><i class="fa-solid fa-circle-check"></i> Phase 1 — Completed Milestone</span>
                             <h3>Planning, Architecture &amp; Core CLI Implementation</h3>
                         </div>
-                        <p>Implemented modular 5-layer pipeline, Dual Trie ignore engine ($O(L)$ path filtering), <code>init</code>, <code>add</code> (with <code>-v</code> staged check), <code>remove</code>, <code>commit</code>, <code>log</code>, <code>checkout</code>, <code>rollback</code>, and zero-dependency standalone compilation.</p>
+                        <p>Implemented modular 5-layer pipeline, Dual Trie ignore engine (<em>O</em>(<em>L</em>) path filtering), <code>init</code>, <code>add</code> (with <code>-v</code> staged check), <code>remove</code>, <code>commit</code>, <code>log</code>, <code>checkout</code>, <code>rollback</code>, and zero-dependency standalone compilation.</p>
                     </div>
                 </div>
 
@@ -1290,7 +1308,7 @@
     </footer>
 
     <!-- Custom JavaScript -->
-    <script src="script.js"></script>
+    <script src="script.js" defer></script>
 </body>
 
 </html>

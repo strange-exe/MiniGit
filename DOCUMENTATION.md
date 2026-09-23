@@ -10,7 +10,7 @@
 
 ## Table of Contents
 1. [Introduction & Scope](#1-introduction--scope)
-2. [Abhinesh's Responsibilities & Implementation](#2-abhineshs-responsibilities--implementation)
+2. [Responsibilities & Implementation](#2-responsibilities--implementation)
    - [2.1 Repository Setup (`minigit init`)](#21-repository-setup-minigit-init)
    - [2.2 Command Dispatcher Architecture](#22-command-dispatcher-architecture)
    - [2.3 Status & Error Mapping (`IS_STAGED`)](#23-status--error-mapping-is_staged)
@@ -34,7 +34,7 @@ MiniGit is a local, lightweight version-control tool developed in C++ to demonst
 
 ---
 
-## 2. Abhinesh's Responsibilities & Implementation
+## 2. Responsibilities & Implementation
 
 Abhinesh is responsible for **Repository Initialization**, the **CLI Interface**, the **Command Dispatcher**, **Ignore Validation**, and **Result Status Mapping**.
 
