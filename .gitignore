@@ -36,6 +36,7 @@
 
 # Executables
 *.exe
+!minigit.exe
 *.out
 *.app
 

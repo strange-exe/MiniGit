@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniGit — Lightweight C++ Version Control System & Data Structure Visualizer</title>
+    <title>MiniGit — Fast Version Control System with C++ & Core Data Structures</title>
     <meta name="description"
-        content="MiniGit is a local, command-line version control system built in C++ demonstrating core data structures like Singly Linked Lists, Hash Tables, and Stacks. Developed by Team Blaze.">
+        content="MiniGit is a lightning-fast, zero-dependency local version control system written in C++ demonstrating Dual Trie .minigitignore, Hash Table staging, Singly Linked List history, and LIFO Stack rollbacks.">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,39 +31,46 @@
         <div class="grid-overlay"></div>
     </div>
 
-    <!-- Navigation Header -->
-    <header class="site-header">
+    <!-- Navigation Header (Antigravity Floating Island Dock) -->
+    <header class="site-header" id="siteHeader">
         <div class="nav-container">
-            <a href="#" class="brand-logo">
+            <a href="#overview" class="brand-logo" aria-label="MiniGit Homepage">
                 <div class="logo-icon">
                     <i class="fa-solid fa-code-commit"></i>
                 </div>
                 <div class="logo-text">
                     <span class="brand-name">MiniGit</span>
-                    <span class="brand-badge">PBL · C++ VCS</span>
+                    <span class="brand-badge"><span class="badge-pulse-dot"></span> v1.0</span>
                 </div>
             </a>
 
-            <nav class="nav-menu">
-                <a href="#overview" class="nav-link active"><i class="fa-solid fa-compass"></i> Overview</a>
-                <a href="#architecture" class="nav-link"><i class="fa-solid fa-cubes"></i> Architecture</a>
-                <a href="#simulator" class="nav-link highlight-link"><i class="fa-solid fa-terminal"></i> Visualizer &
-                    CLI</a>
-                <a href="#commands" class="nav-link"><i class="fa-solid fa-terminal"></i> Commands</a>
-                <a href="#roadmap" class="nav-link"><i class="fa-solid fa-route"></i> Roadmap</a>
-                <a href="#team" class="nav-link"><i class="fa-solid fa-users"></i> Team</a>
-                <a href="#reports" class="nav-link"><i class="fa-solid fa-file-pdf"></i> Reports</a>
+            <nav class="nav-menu" id="primaryNav" aria-label="Primary Navigation">
+                <a href="#overview" class="nav-link active" data-section="overview"><i class="fa-solid fa-compass"></i> About</a>
+                <a href="#features" class="nav-link" data-section="features"><i class="fa-solid fa-star"></i> Features</a>
+                <a href="#architecture" class="nav-link" data-section="architecture"><i class="fa-solid fa-cubes"></i> Architecture</a>
+                <a href="#simulator" class="nav-link highlight-link" data-section="simulator">
+                    <span class="nav-pulse-dot"></span>
+                    <i class="fa-solid fa-terminal"></i> Visualizer
+                </a>
+                <a href="#commands" class="nav-link" data-section="commands"><i class="fa-solid fa-list-check"></i> Commands</a>
+                <a href="#downloads" class="nav-link" data-section="downloads"><i class="fa-solid fa-download"></i> Downloads</a>
+                <a href="#team" class="nav-link" data-section="team"><i class="fa-solid fa-users"></i> Team</a>
+                <a href="#reports" class="nav-link" data-section="reports"><i class="fa-solid fa-file-pdf"></i> Reports</a>
+                <div class="mobile-nav-cta">
+                    <a href="minigit.exe" download class="btn btn-primary btn-sm btn-block">
+                        <i class="fa-solid fa-download"></i> Download minigit.exe (2.7 MB)
+                    </a>
+                </div>
             </nav>
 
             <div class="nav-actions">
-                <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle Light/Dark Theme"
-                    title="Toggle Theme">
+                <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle Light or Dark Theme" title="Toggle Theme">
                     <i class="fa-solid fa-moon"></i>
                 </button>
-                <a href="#simulator" class="btn btn-primary btn-sm nav-launch-btn">
-                    <i class="fa-solid fa-play"></i> Sandbox
+                <a href="minigit.exe" download class="btn btn-primary btn-sm nav-launch-btn" title="Download standalone executable">
+                    <i class="fa-solid fa-download"></i> minigit.exe
                 </a>
-                <button id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Toggle Navigation Menu">
+                <button id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Toggle Navigation Menu" aria-expanded="false" aria-controls="primaryNav">
                     <i class="fa-solid fa-bars"></i>
                 </button>
             </div>
@@ -73,64 +80,169 @@
     <!-- Main Content Container -->
     <main class="main-wrapper">
 
-        <!-- HERO SECTION -->
+        <!-- HERO SECTION (Git-SCM Style) -->
         <section id="overview" class="hero-section">
             <div class="hero-content">
+                <div class="git-tagline">--fast-version-control-with-c++</div>
+
                 <div class="hero-badge animate-fade-in">
                     <span class="badge-dot"></span>
-                    <span>PBL in DS CPP · Team Blaze · DSCPP-III-2026-T296 · CSE (AI&ML)</span>
+                    <span>MiniGit · Team Blaze · Graphic Era University</span>
                 </div>
 
                 <h1 class="hero-title animate-fade-in delay-1">
-                    Version Control Demystified <br>
-                    <span class="gradient-text">Powered by Core Data Structures</span>
+                    Fast Version Control. <br>
+                    <span class="gradient-text">Engineered from First Principles.</span>
                 </h1>
 
                 <p class="hero-subtitle animate-fade-in delay-2">
-                    A compact, local C++ command-line version-control system engineered to demonstrate the fundamental
-                    mechanics of repository management, commit histories, file tracking, and state restorations without
-                    full-scale Git complexity.
+                    A zero-dependency local VCS crafted in C++ for maximum transparency and execution speed. Built with a 
+                    <strong>Dual Trie</strong> for $O(L)$ ignore pattern filtering, a persistent <strong>Staging Index</strong>, 
+                    a linear <strong>Linked List</strong> commit graph, and <strong>LIFO Stack</strong> rollbacks.
                 </p>
 
                 <div class="hero-cta animate-fade-in delay-3">
-                    <a href="#simulator" class="btn btn-primary btn-lg glow-effect">
-                        <i class="fa-solid fa-flask"></i> Open Live Visualizer
+                    <a href="minigit.exe" download class="btn btn-primary btn-lg glow-effect">
+                        <i class="fa-solid fa-download"></i> Download for Windows (v1.0 · 2.7 MB)
                     </a>
-                    <a href="#architecture" class="btn btn-secondary btn-lg">
-                        <i class="fa-solid fa-sitemap"></i> Explore Architecture
+                    <a href="#simulator" class="btn btn-secondary btn-lg">
+                        <i class="fa-solid fa-terminal"></i> Try in Browser Sandbox
                     </a>
+                    <a href="DOCUMENTATION.md" target="_blank" class="btn btn-secondary btn-lg">
+                        <i class="fa-solid fa-book"></i> Read Documentation
+                    </a>
+                </div>
+
+                <!-- Hero Standalone Chip -->
+                <div class="hero-dl-box animate-fade-in delay-3">
+                    <i class="fa-brands fa-windows text-cyan" style="font-size: 1.8rem;"></i>
+                    <div class="hero-dl-info">
+                        <strong>minigit.exe v1.0 (Windows x86/x64 Standalone)</strong>
+                        <span>100% Statically Linked · No Python or DLL dependencies · Self-installs to PATH</span>
+                    </div>
+                </div>
+
+                <!-- Git Quickstart Terminal Widget -->
+                <div class="hero-git-terminal animate-fade-in delay-4">
+                    <div class="hero-term-line">
+                        <span class="term-prompt">$</span>
+                        <code>minigit init</code>
+                        <span class="term-comment"># Initialized empty MiniGit repo in .minigit/</span>
+                    </div>
+                    <div class="hero-term-line">
+                        <span class="term-prompt">$</span>
+                        <code>minigit ignore *.log build/</code>
+                        <span class="term-comment"># Added to Dual Trie index</span>
+                    </div>
+                    <div class="hero-term-line">
+                        <span class="term-prompt">$</span>
+                        <code>minigit add .</code>
+                        <span class="term-comment"># Staged 4 files, skipped 2 ignored</span>
+                    </div>
+                    <div class="hero-term-line">
+                        <span class="term-prompt">$</span>
+                        <code>minigit commit -m "feat: initial release"</code>
+                        <span class="term-comment"># [main c1] snapshot saved</span>
+                    </div>
                 </div>
 
                 <!-- Stats Pill Bar -->
                 <div class="stats-pills animate-fade-in delay-4">
                     <div class="stat-pill">
-                        <i class="fa-solid fa-link text-cyan"></i>
+                        <i class="fa-solid fa-sitemap text-cyan"></i>
                         <div>
-                            <strong>Singly Linked List</strong>
-                            <span>Linear Commit History</span>
+                            <strong>Dual Trie Engine</strong>
+                            <span>$O(L)$ .minigitignore Rules</span>
                         </div>
                     </div>
                     <div class="stat-pill">
                         <i class="fa-solid fa-hashtag text-purple"></i>
                         <div>
-                            <strong>Hash Table</strong>
-                            <span>Fast Blob & File Lookup</span>
+                            <strong>Hash Table Index</strong>
+                            <span>Instant Staging Verification</span>
                         </div>
                     </div>
                     <div class="stat-pill">
-                        <i class="fa-solid fa-layer-group text-emerald"></i>
+                        <i class="fa-solid fa-link text-emerald"></i>
                         <div>
-                            <strong>Stack</strong>
+                            <strong>Singly Linked List</strong>
+                            <span>Linear Commit Graph</span>
+                        </div>
+                    </div>
+                    <div class="stat-pill">
+                        <i class="fa-solid fa-layer-group text-amber"></i>
+                        <div>
+                            <strong>LIFO Stack</strong>
                             <span>Rollback State Engine</span>
                         </div>
                     </div>
-                    <div class="stat-pill">
-                        <i class="fa-solid fa-folder-tree text-amber"></i>
-                        <div>
-                            <strong>Local Storage</strong>
-                            <span>.minigit File Metadata</span>
-                        </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- WHY MINIGIT / CORE PILLARS SECTION (Git-SCM Style) -->
+        <section id="features" class="section features-section">
+            <div class="section-header text-center">
+                <span class="section-tag">Core Capabilities</span>
+                <h2 class="section-title">Why MiniGit? Built for Speed & Transparency</h2>
+                <p class="section-desc">MiniGit combines the simplicity of educational algorithms with production-grade system mechanics.</p>
+            </div>
+
+            <div class="problem-solution-grid">
+                <!-- Pillar 1: Dual Trie Ignore Engine -->
+                <div class="glass-card feature-card glow-border">
+                    <div class="card-status-badge badge-success">
+                        <i class="fa-solid fa-bolt"></i> $O(L)$ Performance
                     </div>
+                    <h3>Dual Trie .minigitignore</h3>
+                    <p>Unlike traditional string-scanning ignore lists, MiniGit compiles ignore patterns into two specialized prefix trees: a <strong>Forward Directory Trie</strong> for prefixes (e.g. <code>build/</code>) and a <strong>Reversed Suffix Trie</strong> for file extensions (e.g. <code>*.log</code>).</p>
+                    <ul class="card-list success-list">
+                        <li><i class="fa-solid fa-circle-check"></i> Sub-millisecond ignore verification without regex overhead</li>
+                        <li><i class="fa-solid fa-circle-check"></i> Pattern line numbers tracked for instant diagnostic tracing</li>
+                        <li><i class="fa-solid fa-circle-check"></i> Verify rules with <code>minigit ignore -v &lt;path&gt;</code></li>
+                    </ul>
+                </div>
+
+                <!-- Pillar 2: The Staging Index -->
+                <div class="glass-card feature-card">
+                    <div class="card-status-badge badge-cyan">
+                        <i class="fa-solid fa-layer-group"></i> Staging Workspace
+                    </div>
+                    <h3>The Staging Index (.minigit/index)</h3>
+                    <p>MiniGit decouples working directory files from commit snapshots via a dedicated staging index. The index records file paths, modification states, and content blob hashes before commits are permanently sealed.</p>
+                    <ul class="card-list success-list">
+                        <li><i class="fa-solid fa-circle-check"></i> Atomic staging with <code>minigit add &lt;file&gt;</code> or <code>add .</code></li>
+                        <li><i class="fa-solid fa-circle-check"></i> Precise staged verification via <code>minigit add -v &lt;file&gt;</code></li>
+                        <li><i class="fa-solid fa-circle-check"></i> Instant unstaging with <code>minigit remove &lt;file&gt;</code></li>
+                    </ul>
+                </div>
+
+                <!-- Pillar 3: 100% Standalone C++ Binary -->
+                <div class="glass-card feature-card">
+                    <div class="card-status-badge badge-purple">
+                        <i class="fa-solid fa-microchip"></i> Zero Dependencies
+                    </div>
+                    <h3>100% Standalone Executable</h3>
+                    <p>MiniGit is compiled with static linking (<code>-static -static-libgcc -static-libstdc++</code>) in modern C++. It contains zero external DLL dependencies and runs out-of-the-box on any Windows machine.</p>
+                    <ul class="card-list success-list">
+                        <li><i class="fa-solid fa-circle-check"></i> Portable 2.7 MB binary (`minigit.exe`)</li>
+                        <li><i class="fa-solid fa-circle-check"></i> Uses native Windows subsystem calls via `ghc::filesystem`</li>
+                        <li><i class="fa-solid fa-circle-check"></i> Built-in self-installation to `%LOCALAPPDATA%\Microsoft\WindowsApps`</li>
+                    </ul>
+                </div>
+
+                <!-- Pillar 4: Linear Commit Graph & Stack Undo -->
+                <div class="glass-card feature-card">
+                    <div class="card-status-badge badge-amber">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Safe State Restores
+                    </div>
+                    <h3>Linear History & Rollbacks</h3>
+                    <p>Commits are organized into a Singly Linked List tracked by the <code>HEAD</code> pointer. Checking out an older commit safely pushes the current state onto a <strong>LIFO Rollback Stack</strong>, preventing accidental state loss.</p>
+                    <ul class="card-list success-list">
+                        <li><i class="fa-solid fa-circle-check"></i> Fast chronological history traversal via <code>minigit log</code></li>
+                        <li><i class="fa-solid fa-circle-check"></i> Seamless checkout with <code>minigit checkout &lt;hash&gt;</code></li>
+                        <li><i class="fa-solid fa-circle-check"></i> One-step undo restoration via <code>minigit rollback</code></li>
+                    </ul>
                 </div>
             </div>
         </section>
@@ -187,12 +299,14 @@
                         </div>
                         <div class="clean-command-box">
                             <div><span class="prompt">$</span> minigit init</div>
+                            <div><span class="prompt">$</span> minigit ignore *.log build/</div>
                             <div><span class="prompt">$</span> minigit add main.cpp</div>
                             <div><span class="prompt">$</span> minigit commit -m "Core logic added"</div>
                         </div>
                     </div>
 
                     <ul class="card-list success-list">
+                        <li><i class="fa-solid fa-circle-check"></i> Dual Trie ignore filtering for $O(L)$ rule matching</li>
                         <li><i class="fa-solid fa-circle-check"></i> Clean linear history graph via Linked List</li>
                         <li><i class="fa-solid fa-circle-check"></i> Instant snapshot lookups via Hash Tables</li>
                         <li><i class="fa-solid fa-circle-check"></i> Safe state rollback engine using Stack</li>
@@ -206,20 +320,20 @@
             <div class="section-header text-center">
                 <span class="section-tag">System Design</span>
                 <h2 class="section-title">5-Layer Modular Architecture</h2>
-                <p class="section-desc">MiniGit decouples terminal command parsing, state validation, object storage,
-                    and underlying data structures.</p>
+                <p class="section-desc">MiniGit decouples terminal command parsing, ignore evaluation, staging index,
+                    object storage, and underlying data structures.</p>
             </div>
 
-            <!-- Interactive Architecture Layers Diagram -->
+            <!-- Architecture Layers Diagram -->
             <div class="architecture-diagram glass-card">
                 <div class="arch-layer-list">
                     <div class="arch-layer layer-1" data-layer="1">
                         <div class="layer-number">01</div>
                         <div class="layer-info">
-                            <h4>CLI Interface</h4>
-                            <p>Parses and validates raw terminal arguments from standard input.</p>
+                            <h4>CLI Interface & Dispatcher</h4>
+                            <p>Parses command flags, provides colored terminal output, handles auto-path installation.</p>
                         </div>
-                        <div class="layer-badge"><i class="fa-solid fa-terminal"></i> Command Parsing</div>
+                        <div class="layer-badge"><i class="fa-solid fa-terminal"></i> CLI.cpp</div>
                     </div>
 
                     <div class="layer-connector"><i class="fa-solid fa-arrow-down-long"></i></div>
@@ -227,10 +341,10 @@
                     <div class="arch-layer layer-2" data-layer="2">
                         <div class="layer-number">02</div>
                         <div class="layer-info">
-                            <h4>Command Handler</h4>
-                            <p>Dispatches commands, validates repository state, and maps operation errors.</p>
+                            <h4>Ignore Module & Dual Trie</h4>
+                            <p>Parses <code>.minigitignore</code> into forward and reverse prefix trees for $O(L)$ path filtering.</p>
                         </div>
-                        <div class="layer-badge"><i class="fa-solid fa-diagram-project"></i> Dispatcher</div>
+                        <div class="layer-badge"><i class="fa-solid fa-sitemap"></i> Trie.cpp</div>
                     </div>
 
                     <div class="layer-connector"><i class="fa-solid fa-arrow-down-long"></i></div>
@@ -238,10 +352,10 @@
                     <div class="arch-layer layer-3" data-layer="3">
                         <div class="layer-number">03</div>
                         <div class="layer-info">
-                            <h4>Repository Manager</h4>
-                            <p>Orchestrates staging, commit creation, history traversal, and checkout restorations.</p>
+                            <h4>Staging Index & Repository Manager</h4>
+                            <p>Orchestrates <code>.minigit/index</code> staging, blob hashing, and checkout state verification.</p>
                         </div>
-                        <div class="layer-badge"><i class="fa-solid fa-gears"></i> Engine Core</div>
+                        <div class="layer-badge"><i class="fa-solid fa-gears"></i> Repository.cpp</div>
                     </div>
 
                     <div class="layer-connector"><i class="fa-solid fa-arrow-down-long"></i></div>
@@ -250,10 +364,9 @@
                         <div class="layer-number">04</div>
                         <div class="layer-info">
                             <h4>Storage Layer</h4>
-                            <p>Manages physical file I/O for <code>.minigit/objects/</code>, <code>refs/</code>,
-                                <code>HEAD</code>, and <code>index</code>.</p>
+                            <p>Manages physical file I/O for <code>.minigit/objects/</code>, <code>HEAD</code>, <code>index</code>, and <code>.minigitignore</code>.</p>
                         </div>
-                        <div class="layer-badge"><i class="fa-solid fa-hard-drive"></i> File I/O</div>
+                        <div class="layer-badge"><i class="fa-solid fa-hard-drive"></i> InitCommand.cpp</div>
                     </div>
 
                     <div class="layer-connector"><i class="fa-solid fa-arrow-down-long"></i></div>
@@ -261,8 +374,8 @@
                     <div class="arch-layer layer-5" data-layer="5">
                         <div class="layer-number">05</div>
                         <div class="layer-info">
-                            <h4>Data Structures Layer</h4>
-                            <p>Powers history, indexing, and rollback using Linked Lists, Hash Tables, and Stacks.</p>
+                            <h4>Core Data Structures</h4>
+                            <p>Dual Trie, Singly Linked List, Hash Table, and LIFO Stack written in pure C++.</p>
                         </div>
                         <div class="layer-badge"><i class="fa-solid fa-microchip"></i> Data Structures</div>
                     </div>
@@ -274,55 +387,51 @@
                 <div class="glass-card class-card">
                     <div class="class-header">
                         <span class="class-type">C++ Class</span>
-                        <h3><code>Repository</code></h3>
+                        <h3><code>CLI</code></h3>
                     </div>
-                    <p>Main controller for repo initialization, file tracking, commit history maintenance, and disk
-                        persistence.</p>
+                    <p>Entry-point dispatcher parsing command lines, checking arguments, formatting messages, and managing auto-install.</p>
                     <div class="class-tags">
-                        <span><i class="fa-solid fa-check"></i> init()</span>
-                        <span><i class="fa-solid fa-check"></i> add()</span>
+                        <span><i class="fa-solid fa-check"></i> run()</span>
+                        <span><i class="fa-solid fa-check"></i> autoInstall()</span>
+                        <span><i class="fa-solid fa-check"></i> printHelp()</span>
+                    </div>
+                </div>
+
+                <div class="glass-card class-card">
+                    <div class="class-header">
+                        <span class="class-type">C++ Class</span>
+                        <h3><code>Trie / IgnoreModule</code></h3>
+                    </div>
+                    <p>Dual prefix tree engine managing <code>.minigitignore</code> parsing, line numbers, directory prefixes, and reversed extensions.</p>
+                    <div class="class-tags">
+                        <span><i class="fa-solid fa-check"></i> insert()</span>
+                        <span><i class="fa-solid fa-check"></i> isIgnored()</span>
+                        <span><i class="fa-solid fa-check"></i> getLine()</span>
+                    </div>
+                </div>
+
+                <div class="glass-card class-card">
+                    <div class="class-header">
+                        <span class="class-type">C++ Class</span>
+                        <h3><code>InitCommand</code></h3>
+                    </div>
+                    <p>Constructs <code>.minigit/</code> directory, <code>objects/</code> store, empty <code>index</code>, <code>HEAD</code>, and default <code>.minigitignore</code>.</p>
+                    <div class="class-tags">
+                        <span><i class="fa-solid fa-check"></i> execute()</span>
+                        <span><i class="fa-solid fa-check"></i> createDirs()</span>
+                    </div>
+                </div>
+
+                <div class="glass-card class-card">
+                    <div class="class-header">
+                        <span class="class-type">C++ Class</span>
+                        <h3><code>Repository & Staging</code></h3>
+                    </div>
+                    <p>Handles staging operations, blob generation, linked list commit records, and non-destructive stack rollbacks.</p>
+                    <div class="class-tags">
+                        <span><i class="fa-solid fa-check"></i> addFile()</span>
+                        <span><i class="fa-solid fa-check"></i> addVerify()</span>
                         <span><i class="fa-solid fa-check"></i> commit()</span>
-                        <span><i class="fa-solid fa-check"></i> checkout()</span>
-                    </div>
-                </div>
-
-                <div class="glass-card class-card">
-                    <div class="class-header">
-                        <span class="class-type">C++ Class</span>
-                        <h3><code>Commit</code></h3>
-                    </div>
-                    <p>Encapsulates commit ID (hash), commit message, creation timestamp, parent pointer, and snapshot
-                        file records.</p>
-                    <div class="class-tags">
-                        <span><i class="fa-solid fa-key"></i> Commit ID</span>
-                        <span><i class="fa-solid fa-clock"></i> Timestamp</span>
-                        <span><i class="fa-solid fa-link"></i> Parent Link</span>
-                    </div>
-                </div>
-
-                <div class="glass-card class-card">
-                    <div class="class-header">
-                        <span class="class-type">C++ Class</span>
-                        <h3><code>FileSnapshot</code></h3>
-                    </div>
-                    <p>Tracks file path, unique blob hash, snapshot storage location, and content references at commit
-                        time.</p>
-                    <div class="class-tags">
-                        <span><i class="fa-solid fa-file-code"></i> File Path</span>
-                        <span><i class="fa-solid fa-fingerprint"></i> Blob Hash</span>
-                    </div>
-                </div>
-
-                <div class="glass-card class-card">
-                    <div class="class-header">
-                        <span class="class-type">C++ Class</span>
-                        <h3><code>CommandHandler</code></h3>
-                    </div>
-                    <p>Parses user command line arguments, validates option flags (e.g. <code>-m</code>), and returns
-                        status output.</p>
-                    <div class="class-tags">
-                        <span><i class="fa-solid fa-terminal"></i> Parser</span>
-                        <span><i class="fa-solid fa-shield-halved"></i> Validation</span>
                     </div>
                 </div>
             </div>
@@ -334,87 +443,96 @@
                 <span class="section-tag highlight-tag"><i class="fa-solid fa-bolt"></i> Interactive Playground</span>
                 <h2 class="section-title">MiniGit Live Visualizer & CLI Sandbox</h2>
                 <p class="section-desc">Execute real MiniGit commands in the terminal simulator and observe
-                    instantaneous live updates to the <strong>Commit Linked List</strong>, <strong>Staging Hash
-                        Table</strong>, <strong>Rollback Stack</strong>, and <strong>.minigit Storage</strong>.</p>
+                    instantaneous live updates to the <strong>Commit Linked List</strong>, <strong>Staging Hash Table</strong>,
+                    <strong>Dual Trie Ignored Rules</strong>, <strong>Rollback Stack</strong>, and <strong>.minigit Storage</strong>.</p>
             </div>
 
             <!-- Preset Quick Run Buttons -->
-            <div class="quick-presets">
+            <div class="quick-presets" role="group" aria-label="Preset demonstration workflows">
                 <span class="presets-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Preset Workflows:</span>
-                <button class="btn btn-preset" onclick="runPresetWorkflow('full')"><i class="fa-solid fa-play"></i> Full
-                    Demo Workflow</button>
-                <button class="btn btn-preset" onclick="runPresetWorkflow('init_add_commit')"><i
-                        class="fa-solid fa-plus-minus"></i> Track & Commit</button>
-                <button class="btn btn-preset" onclick="runPresetWorkflow('checkout_demo')"><i
-                        class="fa-solid fa-arrow-rotate-left"></i> Checkout & Rollback</button>
-                <button class="btn btn-preset btn-reset" onclick="resetSandbox()"><i class="fa-solid fa-rotate"></i>
-                    Reset Repo</button>
+                <button class="btn btn-preset" onclick="runPresetWorkflow('full', event)"><i class="fa-solid fa-play"></i> Full Demo Workflow</button>
+                <button class="btn btn-preset" onclick="runPresetWorkflow('init_add_commit', event)"><i class="fa-solid fa-plus-minus"></i> Track & Commit</button>
+                <button class="btn btn-preset" onclick="runPresetWorkflow('ignore_demo', event)"><i class="fa-solid fa-sitemap"></i> Trie Ignore Demo</button>
+                <button class="btn btn-preset" onclick="runPresetWorkflow('checkout_demo', event)"><i class="fa-solid fa-arrow-rotate-left"></i> Checkout & Rollback</button>
+                <button class="btn btn-preset btn-reset" onclick="resetSandbox()"><i class="fa-solid fa-rotate"></i> Reset Repo</button>
             </div>
 
             <!-- Playground Layout: Terminal Left, Visualizer Right -->
             <div class="simulator-layout">
 
                 <!-- TERMINAL WINDOW -->
-                <div class="terminal-card glass-card">
+                <div class="terminal-card glass-card" role="region" aria-label="Terminal Simulator">
                     <div class="terminal-header">
-                        <div class="terminal-dots">
+                        <div class="terminal-dots" aria-hidden="true">
                             <span class="dot dot-red"></span>
                             <span class="dot dot-yellow"></span>
                             <span class="dot dot-green"></span>
                         </div>
                         <div class="terminal-title">
-                            <i class="fa-solid fa-terminal"></i> minigit-cli — bash
+                            <i class="fa-solid fa-terminal"></i> minigit-cli — PowerShell / Bash
                         </div>
                         <div class="terminal-actions">
-                            <button id="clearTerminalBtn" class="term-btn" title="Clear Terminal"><i
-                                    class="fa-solid fa-eraser"></i> Clear</button>
+                            <button id="clearTerminalBtn" class="term-btn" title="Clear Terminal" aria-label="Clear terminal output"><i class="fa-solid fa-eraser"></i> Clear</button>
                         </div>
                     </div>
 
-                    <div id="terminalBody" class="terminal-body">
+                    <div id="terminalBody" class="terminal-body" role="log" aria-live="polite">
                         <div class="term-welcome">
-                            <pre class="ascii-art">
-//      __  __ ___ _   _ ___ ____ ___ _____ 
-//     |  \/  |_ _| \ | |_ _/ ___|_ _|_   _|
-//     | |\/| || ||  \| || | |  _ | |  | |  
-//     | |  | || || |\  || | |_| || |  | |  
-//     |_|  |_|___|_| \_|___\____|___| |_|  
-//                                           
-                            </pre>
-                            <p class="welcome-text">MiniGit Interactive Terminal Simulator v1.0</p>
-                            <p class="help-hint">Type <span class="cmd-text">help</span> to view available commands, or
-                                click quick buttons above.</p>
+                            <div class="term-sys-header">
+                                <span class="term-sys-badge"><i class="fa-solid fa-terminal"></i> MINIGIT CORE v1.0.0</span>
+                                <span class="term-sys-target">[x86_64-windows]</span>
+                                <span class="term-sys-pulse"></span>
+                                <span class="term-sys-state">Local Engine Active</span>
+                            </div>
+                            <p class="welcome-text">Interactive Sandbox &amp; Live Data Structure Visualizer</p>
+                            <p class="help-hint">Type <span class="cmd-text">help</span> to view available commands, or click any command chip or preset workflow.</p>
                         </div>
                         <div id="terminalOutput"></div>
                     </div>
 
+                    <!-- Quick Command Suggestions Bar -->
+                    <div class="terminal-chips-bar" aria-label="Quick Command Suggestions">
+                        <span class="chips-label"><i class="fa-solid fa-bolt text-cyan"></i> Try:</span>
+                        <button type="button" class="term-chip" onclick="executeInSandbox('minigit init')">init</button>
+                        <button type="button" class="term-chip" onclick="executeInSandbox('minigit ignore *.log')">ignore *.log</button>
+                        <button type="button" class="term-chip" onclick="executeInSandbox('minigit add .')">add .</button>
+                        <button type="button" class="term-chip" onclick="executeInSandbox('minigit add -v main.cpp')">add -v</button>
+                        <button type="button" class="term-chip" onclick="executeInSandbox('minigit commit -m &quot;feat: core update&quot;')">commit</button>
+                        <button type="button" class="term-chip" onclick="executeInSandbox('minigit log')">log</button>
+                        <button type="button" class="term-chip" onclick="executeInSandbox('minigit checkout c1')">checkout</button>
+                        <button type="button" class="term-chip" onclick="executeInSandbox('minigit rollback')">rollback</button>
+                    </div>
+
                     <!-- Input Line -->
                     <div class="terminal-input-line">
-                        <span class="term-prompt">strange <span class="term-branch">(main)</span> $</span>
+                        <span class="term-prompt">minigit <span class="term-branch">(main)</span> $</span>
                         <input type="text" id="cliInput" placeholder="type a command e.g. 'minigit init'..."
+                            aria-label="MiniGit terminal command input"
                             autocomplete="off" spellcheck="false">
-                        <button id="cliSendBtn" class="btn btn-primary btn-icon"><i
-                                class="fa-solid fa-paper-plane"></i></button>
+                        <button id="cliSendBtn" class="btn btn-primary btn-icon" title="Send Command" aria-label="Execute command"><i class="fa-solid fa-paper-plane"></i></button>
                     </div>
                 </div>
 
                 <!-- LIVE DATA STRUCTURE VISUALIZER PANEL -->
-                <div class="visualizer-card glass-card">
+                <div class="visualizer-card glass-card" role="region" aria-label="Live Data Structure Visualizer">
 
                     <!-- Visualizer Tab Controls -->
                     <div class="viz-header">
-                        <div class="viz-tabs">
-                            <button class="viz-tab active" data-tab="linkedlist">
-                                <i class="fa-solid fa-link text-cyan"></i> Commit History (Linked List)
+                        <div class="viz-tabs" role="tablist" aria-label="Data Structure Visualizer Tabs">
+                            <button class="viz-tab active" data-tab="linkedlist" role="tab" id="tab-linkedlist" aria-selected="true" aria-controls="viz-linkedlist">
+                                <i class="fa-solid fa-link text-cyan"></i> Commits (Linked List)
                             </button>
-                            <button class="viz-tab" data-tab="hashtable">
+                            <button class="viz-tab" data-tab="hashtable" role="tab" id="tab-hashtable" aria-selected="false" aria-controls="viz-hashtable">
                                 <i class="fa-solid fa-hashtag text-purple"></i> Staging (Hash Table)
                             </button>
-                            <button class="viz-tab" data-tab="stack">
+                            <button class="viz-tab" data-tab="trie" role="tab" id="tab-trie" aria-selected="false" aria-controls="viz-trie">
+                                <i class="fa-solid fa-sitemap text-amber"></i> Ignored (Trie Tree)
+                            </button>
+                            <button class="viz-tab" data-tab="stack" role="tab" id="tab-stack" aria-selected="false" aria-controls="viz-stack">
                                 <i class="fa-solid fa-layer-group text-emerald"></i> Rollback (Stack)
                             </button>
-                            <button class="viz-tab" data-tab="filesystem">
-                                <i class="fa-solid fa-folder-tree text-amber"></i> .minigit/ Storage
+                            <button class="viz-tab" data-tab="filesystem" role="tab" id="tab-filesystem" aria-selected="false" aria-controls="viz-filesystem">
+                                <i class="fa-solid fa-folder-tree text-cyan"></i> .minigit/ Storage
                             </button>
                         </div>
                     </div>
@@ -423,10 +541,9 @@
                     <div class="viz-body">
 
                         <!-- VIEW 1: LINKED LIST (COMMITS) -->
-                        <div id="viz-linkedlist" class="viz-view active">
+                        <div id="viz-linkedlist" class="viz-view active" role="tabpanel" aria-labelledby="tab-linkedlist">
                             <div class="view-status-bar">
-                                <span class="status-indicator"><i class="fa-solid fa-circle text-emerald"></i>
-                                    Structure: Singly Linked List</span>
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-emerald"></i> Structure: Singly Linked List</span>
                                 <span id="commitCountBadge" class="info-badge">0 Commits</span>
                             </div>
 
@@ -442,10 +559,9 @@
                         </div>
 
                         <!-- VIEW 2: HASH TABLE (STAGING & BLOBS) -->
-                        <div id="viz-hashtable" class="viz-view">
+                        <div id="viz-hashtable" class="viz-view" role="tabpanel" aria-labelledby="tab-hashtable">
                             <div class="view-status-bar">
-                                <span class="status-indicator"><i class="fa-solid fa-circle text-purple"></i> Structure:
-                                    Hash Table & Staging Index</span>
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-purple"></i> Structure: Hash Table & Staging Index</span>
                                 <span id="stagedCountBadge" class="info-badge">0 Files Staged</span>
                             </div>
 
@@ -453,18 +569,35 @@
                                 <div id="hashTableGrid" class="hash-table-grid">
                                     <div class="empty-state">
                                         <i class="fa-solid fa-hashtag"></i>
-                                        <p>Staging area (index) is currently empty.</p>
-                                        <span>Run <code>minigit add &lt;file&gt;</code> to stage files.</span>
+                                        <p>Staging area (.minigit/index) is currently empty.</p>
+                                        <span>Run <code>minigit add &lt;file&gt;</code> or <code>minigit add .</code> to stage files.</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- VIEW 3: STACK (ROLLBACK ENGINE) -->
-                        <div id="viz-stack" class="viz-view">
+                        <!-- VIEW 3: DUAL TRIE (.minigitignore PREFIX TREES) -->
+                        <div id="viz-trie" class="viz-view" role="tabpanel" aria-labelledby="tab-trie">
                             <div class="view-status-bar">
-                                <span class="status-indicator"><i class="fa-solid fa-circle text-amber"></i> Structure:
-                                    Rollback LIFO Stack</span>
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-amber"></i> Structure: Dual Prefix Trie Engine ($O(L)$ Matching)</span>
+                                <span id="trieCountBadge" class="info-badge">0 Rules</span>
+                            </div>
+
+                            <div class="viz-canvas-container">
+                                <div id="trieGraph" class="trie-viz-container">
+                                    <div class="empty-state">
+                                        <i class="fa-solid fa-sitemap"></i>
+                                        <p>No ignore rules loaded.</p>
+                                        <span>Run <code>minigit ignore *.log</code> or <code>minigit ignore build/</code> to build Trie nodes.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VIEW 4: STACK (ROLLBACK ENGINE) -->
+                        <div id="viz-stack" class="viz-view" role="tabpanel" aria-labelledby="tab-stack">
+                            <div class="view-status-bar">
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-emerald"></i> Structure: Rollback LIFO Stack</span>
                                 <span id="stackDepthBadge" class="info-badge">Stack Depth: 0</span>
                             </div>
 
@@ -473,18 +606,16 @@
                                     <div class="empty-state">
                                         <i class="fa-solid fa-layer-group"></i>
                                         <p>Rollback stack is empty.</p>
-                                        <span>Executing <code>minigit checkout &lt;commit-id&gt;</code> pushes current
-                                            state onto stack.</span>
+                                        <span>Executing <code>minigit checkout &lt;commit-id&gt;</code> pushes current state onto the stack.</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- VIEW 4: .MINIGIT FILE SYSTEM -->
-                        <div id="viz-filesystem" class="viz-view">
+                        <!-- VIEW 5: .MINIGIT FILE SYSTEM -->
+                        <div id="viz-filesystem" class="viz-view" role="tabpanel" aria-labelledby="tab-filesystem">
                             <div class="view-status-bar">
-                                <span class="status-indicator"><i class="fa-solid fa-circle text-cyan"></i> Structure:
-                                    Local Metadata Directory</span>
+                                <span class="status-indicator"><i class="fa-solid fa-circle text-cyan"></i> Structure: Local Metadata Directory</span>
                                 <span id="fsStatusBadge" class="info-badge">Not Initialized</span>
                             </div>
 
@@ -510,7 +641,7 @@
             <div class="section-header text-center">
                 <span class="section-tag">Command Matrix</span>
                 <h2 class="section-title">Supported Terminal Commands</h2>
-                <p class="section-desc">MiniGit supports six core commands covering complete repository management.</p>
+                <p class="section-desc">MiniGit supports comprehensive repository management, pattern ignoring, staging verification, and rollback operations.</p>
             </div>
 
             <!-- Command Matrix Cards Grid -->
@@ -522,16 +653,13 @@
                         <code class="cmd-name">minigit init</code>
                         <span class="cmd-badge">Repository Setup</span>
                     </div>
-                    <p class="cmd-desc">Creates a new local repository by building the <code>.minigit/</code> directory
-                        structure, initializing <code>HEAD</code> pointer and empty staging index.</p>
+                    <p class="cmd-desc">Creates a new local repository by building <code>.minigit/</code>, <code>objects/</code>, <code>HEAD</code> pointer, empty staging <code>index</code>, and default <code>.minigitignore</code>.</p>
                     <div class="cmd-syntax">
-                        <span>Syntax:</span> <code>./minigit init</code>
+                        <span>Syntax:</span> <code>minigit init</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit init')"><i
-                                class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit init')"><i
-                                class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit init', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit init')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -539,18 +667,79 @@
                 <div class="glass-card command-card">
                     <div class="cmd-header">
                         <code class="cmd-name">minigit add</code>
-                        <span class="cmd-badge">File Tracking</span>
+                        <span class="cmd-badge">Staging Index</span>
                     </div>
-                    <p class="cmd-desc">Selects specified files for tracking. Generates content hash mappings and
-                        updates the staging area hash table.</p>
+                    <p class="cmd-desc">Stages files into <code>.minigit/index</code> while honoring <code>.minigitignore</code>. Supports single files or recursive tracking with <code>minigit add .</code>.</p>
                     <div class="cmd-syntax">
-                        <span>Syntax:</span> <code>./minigit add &lt;file&gt;</code>
+                        <span>Syntax:</span> <code>minigit add &lt;file&gt; | minigit add .</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit add main.cpp')"><i
-                                class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit add main.cpp')"><i
-                                class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit add main.cpp', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit add main.cpp')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                    </div>
+                </div>
+
+                <!-- add -v (verify) -->
+                <div class="glass-card command-card">
+                    <div class="cmd-header">
+                        <code class="cmd-name">minigit add -v</code>
+                        <span class="cmd-badge">Staging Check</span>
+                    </div>
+                    <p class="cmd-desc">Verifies if a file is currently staged in the index. Returns <code>'&lt;file&gt;' is staged</code> (IS_STAGED) or ignore/untracked status.</p>
+                    <div class="cmd-syntax">
+                        <span>Syntax:</span> <code>minigit add -v &lt;file&gt;</code>
+                    </div>
+                    <div class="cmd-card-footer">
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit add -v main.cpp', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit add -v main.cpp')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                    </div>
+                </div>
+
+                <!-- remove -->
+                <div class="glass-card command-card">
+                    <div class="cmd-header">
+                        <code class="cmd-name">minigit remove</code>
+                        <span class="cmd-badge">Unstage Files</span>
+                    </div>
+                    <p class="cmd-desc">Unstages tracked files from the <code>.minigit/index</code> without modifying or deleting the working directory file on disk.</p>
+                    <div class="cmd-syntax">
+                        <span>Syntax:</span> <code>minigit remove &lt;file&gt; | minigit remove .</code>
+                    </div>
+                    <div class="cmd-card-footer">
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit remove main.cpp', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit remove main.cpp')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                    </div>
+                </div>
+
+                <!-- ignore -->
+                <div class="glass-card command-card">
+                    <div class="cmd-header">
+                        <code class="cmd-name">minigit ignore</code>
+                        <span class="cmd-badge">Trie Ignore Engine</span>
+                    </div>
+                    <p class="cmd-desc">Adds patterns to <code>.minigitignore</code> and recompiles the in-memory Dual Trie. Supports wildcards (<code>*.log</code>), folders (<code>build/</code>), and exact files.</p>
+                    <div class="cmd-syntax">
+                        <span>Syntax:</span> <code>minigit ignore &lt;pattern&gt;</code>
+                    </div>
+                    <div class="cmd-card-footer">
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit ignore *.log', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit ignore *.log')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                    </div>
+                </div>
+
+                <!-- ignore -v -->
+                <div class="glass-card command-card">
+                    <div class="cmd-header">
+                        <code class="cmd-name">minigit ignore -v</code>
+                        <span class="cmd-badge">Trie Diagnostic</span>
+                    </div>
+                    <p class="cmd-desc">Tests a path against the Dual Trie prefix tree in $O(L)$ time, reporting exact ignore pattern match and line number in <code>.minigitignore</code>.</p>
+                    <div class="cmd-syntax">
+                        <span>Syntax:</span> <code>minigit ignore -v &lt;path&gt;</code>
+                    </div>
+                    <div class="cmd-card-footer">
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit ignore -v build/app.exe', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit ignore -v build/app.exe')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -560,18 +749,13 @@
                         <code class="cmd-name">minigit commit</code>
                         <span class="cmd-badge">Version Snapshot</span>
                     </div>
-                    <p class="cmd-desc">Saves current version of tracked files with a timestamped message into
-                        <code>.minigit/objects/</code>, appending a new node to the history linked list.</p>
+                    <p class="cmd-desc">Saves all currently staged files into a permanent version snapshot node, writing blobs to <code>.minigit/objects/</code> and advancing <code>HEAD</code>.</p>
                     <div class="cmd-syntax">
-                        <span>Syntax:</span> <code>./minigit commit -m "message"</code>
+                        <span>Syntax:</span> <code>minigit commit -m "commit message"</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary"
-                            onclick="copyText('./minigit commit -m &quot;Initial commit&quot;')"><i
-                                class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary"
-                            onclick="executeInSandbox('minigit commit -m &quot;Feature update&quot;')"><i
-                                class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit commit -m &quot;feat: initial commit&quot;', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit commit -m &quot;feat: initial commit&quot;')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -581,16 +765,13 @@
                         <code class="cmd-name">minigit log</code>
                         <span class="cmd-badge">History Inspection</span>
                     </div>
-                    <p class="cmd-desc">Traverses the Singly Linked List from HEAD back to root commit, displaying
-                        commit hashes, timestamps, and messages.</p>
+                    <p class="cmd-desc">Traverses the Singly Linked List from <code>HEAD</code> back to the root commit, outputting commit hashes, timestamps, messages, and parent references.</p>
                     <div class="cmd-syntax">
-                        <span>Syntax:</span> <code>./minigit log</code>
+                        <span>Syntax:</span> <code>minigit log</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit log')"><i
-                                class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit log')"><i
-                                class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit log', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit log')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -600,16 +781,13 @@
                         <code class="cmd-name">minigit checkout</code>
                         <span class="cmd-badge">State Restoration</span>
                     </div>
-                    <p class="cmd-desc">Restores repository files to a previously saved commit snapshot. Pushes
-                        pre-restoration working state onto the Rollback Stack.</p>
+                    <p class="cmd-desc">Restores the workspace to an earlier commit snapshot. Automatically pushes the pre-checkout state onto the LIFO Rollback Stack.</p>
                     <div class="cmd-syntax">
-                        <span>Syntax:</span> <code>./minigit checkout &lt;commit-id&gt;</code>
+                        <span>Syntax:</span> <code>minigit checkout &lt;commit-hash&gt;</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit checkout c1')"><i
-                                class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit checkout c1')"><i
-                                class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit checkout c1', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit checkout c1')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
@@ -619,65 +797,138 @@
                         <code class="cmd-name">minigit rollback</code>
                         <span class="cmd-badge">Undo Restoration</span>
                     </div>
-                    <p class="cmd-desc">Pops the top state snapshot off the Rollback Stack and restores repository files
-                        back to the state prior to the last <code>checkout</code>.</p>
+                    <p class="cmd-desc">Pops the top state snapshot off the Rollback Stack and restores the repository to the state prior to the last <code>checkout</code>.</p>
                     <div class="cmd-syntax">
-                        <span>Syntax:</span> <code>./minigit rollback</code>
+                        <span>Syntax:</span> <code>minigit rollback</code>
                     </div>
                     <div class="cmd-card-footer">
-                        <button class="btn btn-sm btn-secondary" onclick="copyText('./minigit rollback')"><i
-                                class="fa-regular fa-copy"></i> Copy</button>
-                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit rollback')"><i
-                                class="fa-solid fa-play"></i> Run in Sandbox</button>
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit rollback', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit rollback')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
+                    </div>
+                </div>
+
+                <!-- install -->
+                <div class="glass-card command-card">
+                    <div class="cmd-header">
+                        <code class="cmd-name">minigit install</code>
+                        <span class="cmd-badge">PATH Setup</span>
+                    </div>
+                    <p class="cmd-desc">Copies the binary to <code>%LOCALAPPDATA%\Microsoft\WindowsApps</code> (already in user PATH) so <code>minigit</code> runs from any terminal without <code>.\</code>.</p>
+                    <div class="cmd-syntax">
+                        <span>Syntax:</span> <code>minigit install</code>
+                    </div>
+                    <div class="cmd-card-footer">
+                        <button class="btn btn-sm btn-secondary" onclick="copyText('minigit install', this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn btn-sm btn-primary" onclick="executeInSandbox('minigit install')"><i class="fa-solid fa-play"></i> Run in Sandbox</button>
                     </div>
                 </div>
 
             </div>
         </section>
 
+        <!-- DOWNLOADS & DOCUMENTATION SECTION (Git-SCM Style) -->
+        <section id="downloads" class="section downloads-section">
+            <div class="section-header text-center">
+                <span class="section-tag"><i class="fa-solid fa-download"></i> Official Releases</span>
+                <h2 class="section-title">Download MiniGit & Documentation</h2>
+                <p class="section-desc">Standalone C++ binaries and technical architecture guides ready for deployment.</p>
+            </div>
+
+            <div class="downloads-grid">
+                <!-- Executable Card -->
+                <div class="glass-card download-card highlight-card">
+                    <span class="download-card-badge">Latest Release v1.0.0</span>
+                    <div class="download-card-icon"><i class="fa-brands fa-windows"></i></div>
+                    <h3>MiniGit for Windows</h3>
+                    <p>Standalone, statically compiled binary with Dual Trie ignore engine, staging index, and auto-PATH installer.</p>
+                    <ul class="download-specs-list">
+                        <li><i class="fa-solid fa-check"></i> <strong>File:</strong> <code>minigit.exe</code> (2.7 MB)</li>
+                        <li><i class="fa-solid fa-check"></i> <strong>Architecture:</strong> x86 / x64 Windows 10 & 11</li>
+                        <li><i class="fa-solid fa-check"></i> <strong>Dependencies:</strong> Zero (KERNEL32.dll & msvcrt.dll only)</li>
+                        <li><i class="fa-solid fa-check"></i> <strong>Self-Installing:</strong> Runs <code>minigit install</code> on first launch</li>
+                    </ul>
+                    <a href="minigit.exe" download class="btn btn-primary btn-block">
+                        <i class="fa-solid fa-download"></i> Download minigit.exe (2.7 MB)
+                    </a>
+                </div>
+
+                <!-- Documentation Card -->
+                <div class="glass-card download-card">
+                    <span class="download-card-badge" style="background:var(--purple-dim);color:var(--purple);border-color:rgba(168,85,247,0.3);">Technical Spec</span>
+                    <div class="download-card-icon"><i class="fa-solid fa-book text-purple"></i></div>
+                    <h3>MiniGit Documentation</h3>
+                    <p>Comprehensive technical manual covering CLI usage, architecture layers, Trie algorithms, and C++ memory layouts.</p>
+                    <ul class="download-specs-list">
+                        <li><i class="fa-solid fa-check"></i> <strong>Format:</strong> Markdown Specification (DOCUMENTATION.md)</li>
+                        <li><i class="fa-solid fa-check"></i> <strong>Coverage:</strong> All 11 commands, flags, data structures</li>
+                        <li><i class="fa-solid fa-check"></i> <strong>Complexity:</strong> Time & space Big-O breakdowns</li>
+                    </ul>
+                    <a href="DOCUMENTATION.md" target="_blank" class="btn btn-secondary btn-block">
+                        <i class="fa-solid fa-file-code"></i> View DOCUMENTATION.md
+                    </a>
+                </div>
+
+                <!-- Academic Package Card -->
+                <div class="glass-card download-card">
+                    <span class="download-card-badge" style="background:var(--emerald-dim);color:var(--emerald);border-color:rgba(16,185,129,0.3);">Academic PBL</span>
+                    <div class="download-card-icon"><i class="fa-solid fa-graduation-cap text-emerald"></i></div>
+                    <h3>PBL Deliverables Deck</h3>
+                    <p>Complete project report and PowerPoint slide deck submitted for Problem-Based Learning in Data Structures (C++).</p>
+                    <ul class="download-specs-list">
+                        <li><i class="fa-solid fa-check"></i> <strong>Report:</strong> <code>Reports/report.pdf</code> (System Design)</li>
+                        <li><i class="fa-solid fa-check"></i> <strong>Deck:</strong> <code>Reports/ppt.pdf</code> (Presentation)</li>
+                        <li><i class="fa-solid fa-check"></i> <strong>Group:</strong> Team Blaze · DSCPP-III-2026-T296</li>
+                    </ul>
+                    <a href="#reports" class="btn btn-secondary btn-block">
+                        <i class="fa-solid fa-file-pdf"></i> View Reports & Deck
+                    </a>
+                </div>
+            </div>
+        </section>
+
         <!-- PROJECT ROADMAP SECTION -->
         <section id="roadmap" class="section roadmap-section">
             <div class="section-header text-center">
-                <span class="section-tag">Development Lifecycle</span>
+                <span class="section-tag"><i class="fa-solid fa-timeline"></i> Development Lifecycle</span>
                 <h2 class="section-title">Project Roadmap</h2>
-                <p class="section-desc">MiniGit follows a disciplined three-phase development lifecycle for PBL in DS CPP. Currently in <strong>Phase 1</strong>.</p>
+                <p class="section-desc">MiniGit follows a disciplined three-phase development lifecycle for PBL in DS CPP. <strong>Phase 1 Delivered · Phase 2 Currently in Motion</strong>.</p>
             </div>
 
             <div class="roadmap-timeline">
 
-                <!-- Phase 1 (CURRENT) -->
-                <div class="roadmap-item active">
-                    <div class="roadmap-marker pulse"><i class="fa-solid fa-compass"></i></div>
+                <!-- Phase 1 (COMPLETED) -->
+                <div class="roadmap-item completed">
+                    <div class="roadmap-marker pulse"><i class="fa-solid fa-check"></i></div>
                     <div class="roadmap-content glass-card glow-border">
                         <div class="roadmap-header">
-                            <span class="phase-badge phase-active"><i class="fa-solid fa-circle-dot"></i> Phase 1 — Current Active Phase</span>
-                            <h3>Planning, Architecture & System Design</h3>
+                            <span class="phase-badge phase-done"><i class="fa-solid fa-circle-check"></i> Phase 1 — Completed Milestone</span>
+                            <h3>Planning, Architecture &amp; Core CLI Implementation</h3>
                         </div>
-                        <p>Defining system architecture, command syntax grammar, repository folder hierarchy (<code>.minigit/</code>), class contracts, and backing data structures. Finalizing execution flow diagrams for <code>init</code>, <code>add</code>, <code>commit</code>, <code>log</code>, <code>checkout</code>, and <code>rollback</code>.</p>
+                        <p>Implemented modular 5-layer pipeline, Dual Trie ignore engine ($O(L)$ path filtering), <code>init</code>, <code>add</code> (with <code>-v</code> staged check), <code>remove</code>, <code>commit</code>, <code>log</code>, <code>checkout</code>, <code>rollback</code>, and zero-dependency standalone compilation.</p>
                     </div>
                 </div>
 
-                <!-- Phase 2 (UPCOMING) -->
-                <div class="roadmap-item upcoming">
-                    <div class="roadmap-marker"><i class="fa-solid fa-clock"></i></div>
-                    <div class="roadmap-content glass-card">
+                <!-- Phase 2 (CURRENTLY IN MOTION) -->
+                <div class="roadmap-item active">
+                    <div class="roadmap-marker pulse"><i class="fa-solid fa-play"></i></div>
+                    <div class="roadmap-content glass-card glow-border">
                         <div class="roadmap-header">
-                            <span class="phase-badge phase-next">Phase 2 — Upcoming Phase</span>
-                            <h3>Repository & Commit Core (C++)</h3>
+                            <span class="phase-badge phase-active"><i class="fa-solid fa-bolt"></i> Phase 2 — Currently in Motion</span>
+                            <h3>Hash Delta Storage, Tree Objects &amp; Binary Compression</h3>
                         </div>
-                        <p>Implementing <code>init</code>, <code>add</code>, <code>commit</code>, and <code>log</code> in modern C++. Constructing <code>.minigit/objects/</code> storage, Singly Linked List commit history graph, and Hash Table staging index.</p>
+                        <p>Currently advancing the C++ core: introducing SHA-256 content addressing, packfile compression, and tree object serialization under team lead architectural supervision.</p>
                     </div>
                 </div>
 
-                <!-- Phase 3 (PLANNED) -->
+                <!-- Phase 3 (UPCOMING) -->
                 <div class="roadmap-item upcoming">
                     <div class="roadmap-marker"><i class="fa-solid fa-hourglass-start"></i></div>
                     <div class="roadmap-content glass-card">
                         <div class="roadmap-header">
-                            <span class="phase-badge phase-next">Phase 3 — Planned Phase</span>
-                            <h3>Restoration, Stack Engine & Verification</h3>
+                            <span class="phase-badge phase-next">Phase 3 - UPCOMING Phase</span>
+                            <h3>Branching, DAG Histories & 3-Way Merge</h3>
                         </div>
-                        <p>Implementing <code>checkout</code> and <code>rollback</code> backed by LIFO stack data structures. Comprehensive edge-case validation, performance benchmarking, project report finalization, and live demonstration.</p>
+                        <p>Expanding the Singly Linked List into a Directed Acyclic Graph (DAG) supporting multi-branch creation, branch switching, and ancestor-based merge resolution.</p>
                     </div>
                 </div>
 
@@ -689,15 +940,16 @@
             <div class="section-header text-center">
                 <span class="section-tag">System Boundaries</span>
                 <h2 class="section-title">Scope & Assumptions</h2>
-                <p class="section-desc">Focusing strictly on core concepts guarantees stability and educational clarity for PBL in DS CPP.</p>
+                <p class="section-desc">Focusing strictly on core concepts guarantees stability, transparency, and educational clarity.</p>
             </div>
 
             <div class="scope-grid">
                 <div class="glass-card scope-card scope-in">
                     <h3><i class="fa-solid fa-circle-check text-emerald"></i> Supported In-Scope Features</h3>
                     <ul>
-                        <li><i class="fa-solid fa-check"></i> Single user on a single local filesystem</li>
-                        <li><i class="fa-solid fa-check"></i> Tracking text-based files (<code>.cpp</code>, <code>.h</code>, <code>.txt</code>)</li>
+                        <li><i class="fa-solid fa-check"></i> Single user on a local filesystem (Windows x86/x64)</li>
+                        <li><i class="fa-solid fa-check"></i> Dual Trie prefix & suffix matching for <code>.minigitignore</code></li>
+                        <li><i class="fa-solid fa-check"></i> Tracking text-based files (<code>.cpp</code>, <code>.h</code>, <code>.txt</code>, <code>.md</code>)</li>
                         <li><i class="fa-solid fa-check"></i> Linear commit history backed by Singly Linked List</li>
                         <li><i class="fa-solid fa-check"></i> Local <code>.minigit/</code> directory metadata storage</li>
                         <li><i class="fa-solid fa-check"></i> Non-destructive checkout with stack rollback</li>
@@ -719,9 +971,9 @@
         <!-- TEAM SECTION -->
         <section id="team" class="section team-section">
             <div class="section-header text-center">
-                <span class="section-tag">Project Team</span>
+                <span class="section-tag"><i class="fa-solid fa-users-gear"></i> Engineering &amp; Architecture</span>
                 <h2 class="section-title">Team Blaze</h2>
-                <p class="section-desc">Phase 1 Architecture, Planning & Design Contributors · PBL in DS CPP · DSCPP-III-2026-T296 · CSE (AI&ML)</p>
+                <p class="section-desc">Phase 1 Complete · <strong>Phase 2 Currently in Motion</strong> · Cross-Module Supervision &amp; Systems Architecture by <strong>Abhinesh Gangwar</strong> · PBL in DS CPP · DSCPP-III-2026-T296 · Graphic Era University</p>
             </div>
 
             <div class="team-grid">
@@ -730,9 +982,23 @@
                         <span>AG</span>
                     </div>
                     <h3>Abhinesh Gangwar</h3>
-                    <span class="team-role role-lead"><i class="fa-solid fa-crown"></i> Team Lead & Systems Architect</span>
-                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Contribution</p>
-                    <p>System architecture design, modular 5-layer pipeline definition, project scoping, and command dispatch flow orchestration.</p>
+                    <span class="team-role role-lead"><i class="fa-solid fa-crown"></i> Team Lead &amp; Systems Architect</span>
+                    <div class="team-cmd-pills">
+                        <span class="cmd-pill">init</span>
+                        <span class="cmd-pill-sep">+</span>
+                        <span class="cmd-pill">ignore</span>
+                    </div>
+                    <span class="team-focus">CLI / Basic Repository Setup · Cross-Module Supervision</span>
+                    <p class="team-phase-tag phase-tag-motion"><i class="fa-solid fa-bolt"></i> Phase 1 Delivered · Phase 2 In Motion</p>
+                    <div class="team-supervision-badge">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>Technical Direction &amp; Module Supervision</span>
+                    </div>
+                    <p class="team-desc">Implement <code>minigit init</code>; create <code>.minigit</code> directory structure; initialize <code>HEAD</code> and <code>index</code>; implement <code>minigit ignore &lt;pattern&gt;</code> command interface; validate ignore input; connect the command to the ignore module. <strong>Supervised &amp; guided all peer module contributions</strong>: reviewed Trie pattern matching (Sparsh), Deque history mechanics (Krish), and Doubly Linked List traversal (Snehil).</p>
+                    <div class="team-integration-note">
+                        <i class="fa-solid fa-code-merge"></i>
+                        <span>Cross-module technical supervision, CLI integration, error messages, final module integration &amp; Phase 2 steering</span>
+                    </div>
                 </div>
 
                 <div class="glass-card team-card">
@@ -740,9 +1006,17 @@
                         <span>SJ</span>
                     </div>
                     <h3>Sparsh Jain</h3>
-                    <span class="team-role"><i class="fa-solid fa-code"></i> CLI & Staging Designer</span>
-                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Contribution</p>
-                    <p>Command-line interface grammar specification (<code>init</code>, <code>add</code>, <code>commit</code>), argument validation rules, and Hash Table staging index design.</p>
+                    <span class="team-role"><i class="fa-solid fa-sitemap"></i> Trie &amp; Staging Specialist</span>
+                    <div class="team-cmd-pills">
+                        <span class="cmd-pill">add</span>
+                    </div>
+                    <span class="team-focus">Trie — .minigitignore</span>
+                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Delivered · Phase 2 Active</p>
+                    <p class="team-desc">Implement Trie; <code>insert()</code>, <code>search()</code>, <code>remove()</code>, <code>isIgnored()</code>; support file-path and extension matching; implement <code>minigit add &lt;file&gt;</code> and <code>minigit add .</code>; skip ignored files; prevent duplicate staging.</p>
+                    <div class="team-integration-note">
+                        <i class="fa-solid fa-code-merge"></i>
+                        <span>Staging/index handling and tests for <code>add</code> + <code>ignore</code></span>
+                    </div>
                 </div>
 
                 <div class="glass-card team-card">
@@ -750,9 +1024,17 @@
                         <span>KB</span>
                     </div>
                     <h3>Krish Bajaj</h3>
-                    <span class="team-role"><i class="fa-solid fa-link"></i> Commit Graph Modeler</span>
-                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Contribution</p>
-                    <p>Singly Linked List data structure modeling for linear commit history, pointer transition design, and commit node metadata schema.</p>
+                    <span class="team-role"><i class="fa-solid fa-rotate-left"></i> Commit &amp; Deque Modeler</span>
+                    <div class="team-cmd-pills">
+                        <span class="cmd-pill">commit</span>
+                    </div>
+                    <span class="team-focus">Deque — Undo/Redo</span>
+                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Delivered · Phase 2 Active</p>
+                    <p class="team-desc">Implement <code>minigit commit "&lt;message&gt;"</code>; generate commit ID; create commit metadata; implement commit insertion; implement Deque for operation history; <code>undo</code>, <code>redo</code>, history-limit handling.</p>
+                    <div class="team-integration-note">
+                        <i class="fa-solid fa-code-merge"></i>
+                        <span>Commit-related tests; connect commit state with storage</span>
+                    </div>
                 </div>
 
                 <div class="glass-card team-card">
@@ -760,9 +1042,147 @@
                         <span>SJ</span>
                     </div>
                     <h3>Snehil Joshi</h3>
-                    <span class="team-role"><i class="fa-solid fa-layer-group"></i> State & Storage Lead</span>
-                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Contribution</p>
-                    <p>Rollback LIFO stack mechanism design, <code>.minigit/</code> directory storage specification, and Phase 1 project documentation compilation.</p>
+                    <span class="team-role"><i class="fa-solid fa-list-ol"></i> History &amp; Navigation Lead</span>
+                    <div class="team-cmd-pills">
+                        <span class="cmd-pill">log</span>
+                    </div>
+                    <span class="team-focus">Doubly Linked List — Commit Navigation</span>
+                    <p class="team-phase-tag"><i class="fa-solid fa-circle-check"></i> Phase 1 Delivered · Phase 2 Active</p>
+                    <p class="team-desc">Implement Doubly Linked List; <code>insert</code>, <code>find</code>, <code>next</code>, <code>prev</code>, traversal; implement <code>minigit log</code>; display commit ID, message and timestamp; support forward/backward history traversal.</p>
+                    <div class="team-integration-note">
+                        <i class="fa-solid fa-code-merge"></i>
+                        <span>History loading, log tests, persistence integration</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Contributions Matrix (Matching Presentation Slide) -->
+            <div class="glass-card contribution-matrix-card">
+                <div class="matrix-header">
+                    <div class="matrix-header-text">
+                        <span class="matrix-tag"><i class="fa-solid fa-table-list"></i> Contribution Breakdown</span>
+                        <h3 class="matrix-title">Module &amp; Task Responsibility Matrix</h3>
+                    </div>
+                    <span class="matrix-badge"><i class="fa-solid fa-bolt text-purple"></i> Phase 1 Delivered · Phase 2 Currently in Motion</span>
+                </div>
+
+                <div class="matrix-table-wrapper">
+                    <table class="contribution-table">
+                        <thead>
+                            <tr>
+                                <th scope="col" style="width: 14%;">Contributor</th>
+                                <th scope="col" style="width: 13%;">Command(s)</th>
+                                <th scope="col" style="width: 22%;">Module / Focus</th>
+                                <th scope="col" style="width: 31%;">Implementation Tasks</th>
+                                <th scope="col" style="width: 20%;">Integration &amp; Deliverables</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="contributor-cell">
+                                    <div class="cell-member">
+                                        <span class="mini-avatar avatar-lead">AG</span>
+                                        <div>
+                                            <strong>Abhinesh</strong>
+                                            <span class="cell-sub">Abhinesh Gangwar (Lead)</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="cmd-pill-group">
+                                        <span class="cmd-pill">init</span>
+                                        <span class="cmd-pill-sep">+</span>
+                                        <span class="cmd-pill">ignore</span>
+                                    </div>
+                                </td>
+                                <td class="module-cell">
+                                    <span class="module-title">CLI / basic repository setup</span>
+                                    <span class="supervision-subtag"><i class="fa-solid fa-crown"></i> Cross-Module Technical Supervision</span>
+                                </td>
+                                <td class="task-cell">
+                                    Implement <code>minigit init</code>; create <code>.minigit</code> directory structure; initialize <code>HEAD</code> and <code>index</code>; implement <code>minigit ignore &lt;pattern&gt;</code> command interface; validate ignore input; connect the command to the ignore module. <strong>Actively supervised and architected peer implementations</strong> across Trie matching, Deque history, and Doubly Linked List navigation.
+                                </td>
+                                <td class="integration-cell">
+                                    <strong>Technical Supervision</strong>, basic CLI integration, command error messages, final module integration, and Phase 2 roadmap direction
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="contributor-cell">
+                                    <div class="cell-member">
+                                        <span class="mini-avatar">SJ</span>
+                                        <div>
+                                            <strong>Sparsh</strong>
+                                            <span class="cell-sub">Sparsh Jain</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="cmd-pill-group">
+                                        <span class="cmd-pill">add</span>
+                                    </div>
+                                </td>
+                                <td class="module-cell">
+                                    <span class="module-title">Trie — .minigitignore</span>
+                                </td>
+                                <td class="task-cell">
+                                    Implement Trie; <code>insert()</code>, <code>search()</code>, <code>remove()</code>, <code>isIgnored()</code>; support file-path and extension matching; implement <code>minigit add &lt;file&gt;</code> and <code>minigit add .</code>; skip ignored files; prevent duplicate staging
+                                </td>
+                                <td class="integration-cell">
+                                    Staging/index handling and tests for <code>add</code> + <code>ignore</code>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="contributor-cell">
+                                    <div class="cell-member">
+                                        <span class="mini-avatar">KB</span>
+                                        <div>
+                                            <strong>Krish</strong>
+                                            <span class="cell-sub">Krish Bajaj</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="cmd-pill-group">
+                                        <span class="cmd-pill">commit</span>
+                                    </div>
+                                </td>
+                                <td class="module-cell">
+                                    <span class="module-title">Deque — Undo/Redo</span>
+                                </td>
+                                <td class="task-cell">
+                                    Implement <code>minigit commit "&lt;message&gt;"</code>; generate commit ID; create commit metadata; implement commit insertion; implement Deque for operation history; <code>undo</code>, <code>redo</code>, history-limit handling
+                                </td>
+                                <td class="integration-cell">
+                                    Commit-related tests; connect commit state with storage
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="contributor-cell">
+                                    <div class="cell-member">
+                                        <span class="mini-avatar">SJ</span>
+                                        <div>
+                                            <strong>Snehil</strong>
+                                            <span class="cell-sub">Snehil Joshi</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="cmd-pill-group">
+                                        <span class="cmd-pill">log</span>
+                                    </div>
+                                </td>
+                                <td class="module-cell">
+                                    <span class="module-title">Doubly Linked List — Commit Navigation</span>
+                                </td>
+                                <td class="task-cell">
+                                    Implement Doubly Linked List; <code>insert</code>, <code>find</code>, <code>next</code>, <code>prev</code>, traversal; implement <code>minigit log</code>; display commit ID, message and timestamp; support forward/backward history traversal
+                                </td>
+                                <td class="integration-cell">
+                                    History loading, log tests, persistence integration
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </section>
@@ -852,19 +1272,19 @@
 
     </main>
 
-    <!-- Footer -->
+    <!-- Footer (Git-SCM Style) -->
     <footer class="site-footer">
         <div class="footer-container">
             <div class="footer-brand">
                 <div class="logo-icon"><i class="fa-solid fa-code-commit"></i></div>
                 <div>
-                    <strong>MiniGit — PBL in DS CPP</strong>
-                    <p>Lightweight Educational C++ Version Control System</p>
+                    <strong>MiniGit — Version Control Demystified</strong>
+                    <p>Fast, local C++ version control system powered by core data structures.</p>
                 </div>
             </div>
             <div class="footer-meta">
-                <p>Team Blaze · DSCPP-III-2026-T296 · CSE (AI&ML)</p>
-                <p>© 2026 MiniGit Educational Project. Phase 1 System Design & Specification.</p>
+                <p>Team Blaze · DSCPP-III-2026-T296 · CSE (AI&ML) · Graphic Era University</p>
+                <p>© 2026 MiniGit Project. Licensed under MIT. Designed in the spirit of <a href="https://git-scm.com" target="_blank" rel="noopener noreferrer" style="color:var(--cyan);">git-scm.com</a>.</p>
             </div>
         </div>
     </footer>

@@ -1,11 +1,13 @@
 # MiniGit
-### A Lightweight Version Control System Using C++ and Data Structures
-#### Project-Based Learning (PBL) in Data Structures & C++ (DS CPP)
+### A Lightweight, Zero-Dependency Version Control System Using C++ and Core Data Structures
+#### Project-Based Learning (PBL) in Data Structures & C++ (DS CPP) · v1.0.0 Release
 
-[![Language](https://img.shields.io/badge/language-C%2B%2B-blue.svg)]()
+[![Language](https://img.shields.io/badge/language-C%2B%2B14-blue.svg)]()
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-green.svg)]()
 [![Course](https://img.shields.io/badge/PBL-DS%20CPP-emerald.svg)]()
+[![Website](https://img.shields.io/badge/website-git--scm%20style-orange.svg)](index.html)
 
-**Team Blaze** · DSCPP-III-2026-T296 · CSE (AI&ML)
+**Team Blaze** · DSCPP-III-2026-T296 · CSE (AI&ML) · Graphic Era University
 
 ---
 
@@ -13,144 +15,110 @@
 
 Students working on programming projects often save multiple copies of the same folder with names like `final`, `final_new`, or `final_latest` to keep track of changes. This quickly becomes confusing — it's hard to tell which version is correct, compare changes, or recover work after a mistake.
 
-Professional version-control tools like Git solve this problem, but their extensive command sets and advanced concepts (branching, merging, remotes, conflict resolution) can be overwhelming for beginners just trying to understand the core idea.
+Professional version-control tools like Git solve this problem, but their vast command sets and internals can be overwhelming for students trying to understand the core mechanics.
 
-**MiniGit** is a compact, local, command-line version-control system built to demonstrate the fundamental principles of version control — repository creation, file tracking, committing, history inspection, and restoration — without the complexity of a full-scale tool. It is designed as a **learning project**, not a replacement for Git, Mercurial, or SVN.
+**MiniGit** is a fast, local command-line version-control system engineered to demonstrate the fundamental principles of version control:
+- **Dual Trie prefix trees** for $O(L)$ `.minigitignore` pattern filtering
+- **Hash Table staging index** (`.minigit/index`) for file status tracking and staged verification
+- **Singly Linked List** for linear, immutable commit histories
+- **LIFO Stack** for non-destructive checkout state rollbacks
+- **100% Standalone C++ binary** (`minigit.exe`) with zero runtime dependencies and automatic PATH installation
 
-## Motivation
-
-- Manual folder duplication is error-prone and hard to navigate.
-- Full-scale VCS tools have a steep learning curve for beginners.
-- MiniGit isolates the *essential* workflow — track, commit, inspect, restore — so the underlying concepts of version control are easier to observe and understand.
-- Building MiniGit lets the team apply **C++, OOP, file handling, and core data structures** in a single, practical application.
-
-## Features
-
-MiniGit supports the following terminal commands:
-
-| Command | Description |
-|---|---|
-| `init` | Create a new local repository |
-| `add` | Select files for tracking |
-| `commit` | Save the current version of tracked files with a message |
-| `log` | Display the sequence of saved commits |
-| `checkout` | Restore a previously saved version |
-| `rollback` | Reverse the most recent restoration |
-
-**Planned optional extensions** (time/feasibility permitting):
-- Simple branching
-- File-version comparison (diffing)
-
-## System Architecture
-
-MiniGit follows a layered, modular architecture:
-
-```
-1. CLI Interface        → Parses and validates terminal commands
-2. Command Handler      → Dispatches commands, validates state, maps results/errors
-3. Repository Manager   → Manages repo state, commit history, staging, and undo
-4. Storage Layer        → Handles file I/O for the .minigit/ directory (objects, metadata)
-5. Data Structures Layer→ Backs the above with linked lists, hash tables, and stacks
-```
-
-All repository data is stored locally inside a `.minigit/` directory, containing:
-- `objects/` — commit and blob storage
-- `refs/`, `HEAD`, `index` — metadata files
-
-### Core Classes
-
-| Class | Responsibility |
-|---|---|
-| `Repository` | Initialization, file tracking, commits, history, storage |
-| `Commit` | Stores commit ID, message, timestamp, parent reference, and snapshots |
-| `FileSnapshot` | Stores file-version details and snapshot location |
-| `CommandHandler` | Processes terminal commands and validates arguments |
-
-### Data Structures Used
-
-| Structure | Purpose |
-|---|---|
-| **Singly Linked List** | Maintains the linear commit history |
-| **Hash Table** | Enables fast file and commit lookup |
-| **Stack** | Supports rollback after a checkout operation |
-| **File Handling (I/O)** | Persists metadata and snapshots in `.minigit/` |
-
-> The core system supports **one user, one local repository, and a linear commit history**. Tree/graph-based branching is an optional extension attempted only after core functionality is stable.
-
-## Project Roadmap
-
-**Phase 1 — Planning & Design**
-Define feature scope, command set, repository folder structure, class responsibilities, and chosen data structures. Finalize command flow for `init`, `add`, `commit`, `log`, `checkout`, and `rollback`.
-
-**Phase 2 — Repository & Commit Module**
-Implement `init`, `add`, `commit`, and `log`. Create the `.minigit` directory to store metadata and snapshots. Each commit stores an ID, message, timestamp, parent link, and file-snapshot details, backed by a linked list (history) and hash table (lookup).
-
-**Phase 3 — Restore, Test & Document**
-Implement `checkout` and `rollback` (backed by a stack). Focus on validation, error handling, testing, documentation, a sample repository, and a final demonstration. Optional features (branching, diffing) are attempted here if time permits.
-
-## Getting Started
-
-> ⚠️ MiniGit is under active development. Build instructions will be finalized as Phase 2 progresses.
-
-### Prerequisites
-- A standard C++ compiler (C++11 or later recommended)
-- A file system with standard file-I/O support (Linux/macOS/Windows)
-
-### Build (planned)
-```bash
-git clone <repository-url>
-cd minigit
-make
-```
-
-### Usage (planned)
-```bash
-./minigit init                     # Initialize a new repository
-./minigit add <file>                # Track a file
-./minigit commit -m "message"       # Save a version
-./minigit log                       # View commit history
-./minigit checkout <commit-id>      # Restore a version
-./minigit rollback                  # Undo the last checkout
-```
-
-## Scope & Assumptions
-
-- Designed for a **single user** on a **single local machine**.
-- Handles **text-based files** (`.cpp`, `.h`, `.txt`, etc.) within the repository folder.
-- Assumes the user has read/write permissions for tracked files.
-- **Out of scope:** remote repositories, collaboration, authentication, merging, conflict resolution, and binary-file optimization.
-
-## Deliverables
-
-- Organized C++ source code
-- A sample repository for demonstration
-- Test cases
-- README / user guide with command examples
-- Project report
-- Live demonstration
-
-## Team & Phase 1 Contributions
-
-| Name | Role | Phase 1 Contributions (Planning & Design) |
-|---|---|---|
-| **Abhinesh Gangwar** | Team Lead & Systems Architect | Overall system architecture, modular 5-layer design, project scoping, and command dispatch flow orchestration |
-| **Sparsh Jain** | CLI & Staging Designer | Command-line syntax grammar (`init`, `add`, `commit`), argument validation rules, and Hash Table staging index design |
-| **Krish Bajaj** | Commit Graph Modeler | Singly Linked List model for commit history graph, pointer transition design, and commit node metadata schema |
-| **Snehil Joshi** | State & Storage Lead | Rollback LIFO stack mechanism design, `.minigit/` disk storage layout specification, and Phase 1 project documentation compilation |
-
-**Course:** PBL in DS CPP · DSCPP-III-2026-T296 · CSE (AI&ML)  
-**Team Name:** Blaze  
-**Current Status:** Phase 1 (Planning & System Design)
-
-## References
-
-1. [Git SCM Documentation](https://git-scm.com/doc)
-2. Scott Chacon & Ben Straub, [*Pro Git, 2nd Edition*](https://git-scm.com/book/en/v2)
-3. [git-checkout Documentation](https://git-scm.com/docs/git-checkout)
-4. [C++ Standard Library Reference — cppreference.com](https://en.cppreference.com/)
-5. Pat Morin, [*Open Data Structures (in C++)*](https://opendatastructures.org/ods-cpp/)
-6. [NPTEL, IIT Delhi — Introduction to Data Structures and Algorithms](https://nptel.ac.in/courses/106102064)
+MiniGit includes an interactive **Git-SCM-inspired Web Visualizer & Terminal Sandbox** (`index.html`) allowing users to visualize data structures updating live in the browser.
 
 ---
 
-*This project is developed as part of the CSE (AI&ML) course requirements (DSCPP-III-2026-T296) and is intended for educational purposes.*
+## Key Features
+
+| Command | Category | Description | Data Structure |
+|---|---|---|---|
+| `minigit init` | Setup | Initializes `.minigit/`, `objects/`, `HEAD`, `index`, and default `.minigitignore` | Filesystem Layout |
+| `minigit add <file>` | Staging | Stages files into index; checks against `.minigitignore` | Hash Table / Index |
+| `minigit add .` | Staging | Recursively stages all tracked files in working tree | Directory Traversal |
+| `minigit add -v <file>` | Verification | Verifies file staged status (`'<file>' is staged`) | Hash Table Lookup |
+| `minigit remove <file>` | Staging | Unstages tracked files from index without deleting disk files | Hash Table Removal |
+| `minigit ignore <pattern>` | Ignore Engine | Adds pattern to `.minigitignore` and Dual Trie index | Dual Prefix Trie |
+| `minigit ignore -r <pattern>` | Ignore Engine | Removes pattern from `.minigitignore` and rebalances Trie | Prefix Tree Deletion |
+| `minigit ignore -v <path>` | Ignore Engine | Diagnostic test checking which pattern/line ignores the path | $O(L)$ Trie Search |
+| `minigit commit -m "..."` | Commit | Seals staged files into immutable commit snapshot node | Singly Linked List |
+| `minigit log` | Inspection | Traverses commits from `HEAD` back to root | Linked List Traversal |
+| `minigit checkout <hash>` | Restore | Restores workspace files to snapshot; pushes state to rollback stack | LIFO Stack Push |
+| `minigit rollback` | Restore | Undoes checkout and pops top state from rollback stack | LIFO Stack Pop |
+| `minigit install` | System | Auto-installs binary to user PATH (`%LOCALAPPDATA%\Microsoft\WindowsApps`) | Windows AppPath |
+
+---
+
+## Dual Trie `.minigitignore` Architecture
+
+Instead of iterating through raw strings on every file check, MiniGit utilizes a **Dual Trie**:
+1. **Directory Prefix Trie**: Handles path prefix patterns like `build/` or `logs/`. Traversal completes in $O(L)$ where $L$ is the directory path length.
+2. **Reversed Extension Trie**: Handles extension wildcard patterns like `*.log` or `*.tmp`. Strings are reversed so file extensions are evaluated from right to left in $O(K)$ time.
+3. **Exact Path Matching**: Handles precise file ignores like `secret.env`.
+
+Each terminal node stores the pattern and its 1-indexed line number in `.minigitignore` for instant diagnostic tracking.
+
+---
+
+## 5-Layer Modular Architecture
+
+MiniGit decouples system components cleanly:
+
+```
+1. CLI Interface (CLI.cpp)           → Parses terminal arguments, flags, handles autoInstall
+2. Ignore Module (Trie.cpp)          → Dual prefix tree pattern matching ($O(L)$)
+3. Repository Manager (Repository.h)  → Coordinates staging index, blobs, and commit graph
+4. Storage Layer (InitCommand.cpp)   → Manages .minigit/ directory, objects/, and metadata
+5. Data Structures Layer             → Pure C++ Singly Linked List, Hash Table, and LIFO Stack
+```
+
+---
+
+## Getting Started
+
+### 1. Download Standalone Executable (Windows)
+Download precompiled `minigit.exe` (2.7 MB). It has **zero dependencies** (requires only standard Windows core DLLs `KERNEL32.dll` and `msvcrt.dll`).
+
+### 2. Auto-Installation
+On first run, typing `./minigit` or double-clicking `minigit.exe` automatically registers itself into your user PATH (`%LOCALAPPDATA%\Microsoft\WindowsApps\minigit.exe`).
+After that, you can run `minigit` globally from any PowerShell or CMD terminal without typing `.\`:
+
+```powershell
+minigit init
+minigit ignore *.log build/
+minigit add .
+minigit add -v main.cpp
+minigit commit -m "feat: initial commit"
+minigit log
+```
+
+### 3. Interactive Web Sandbox
+Open `index.html` in any web browser to explore:
+- Interactive Terminal Simulator with command history
+- Live Singly Linked List commit graph
+- Hash Table staging area visualizer
+- Dual Trie prefix tree node graph
+- LIFO Rollback stack inspection
+- Embedded PDF viewer for project reports and presentation decks
+
+---
+
+## Team Blaze Contributors (Phase 1 Delivered · Phase 2 in Motion)
+
+| Contributor | Command(s) | Module / Focus | Key Implementation Tasks | Integration & Deliverables |
+|---|---|---|---|---|
+| **Abhinesh Gangwar** *(Team Lead & Systems Architect)* | `init` + `ignore` | CLI / basic repository setup · **Cross-Module Supervision** | Implement `minigit init`; create `.minigit` directory structure; initialize `HEAD` and `index`; implement `minigit ignore <pattern>` command interface; validate ignore input; connect command to ignore module. **Supervised & guided all peer module implementations** (Trie, Deque, Doubly Linked List). | **Cross-Module Supervision**, basic CLI integration, command error messages, final module integration, and Phase 2 roadmap direction |
+| **Sparsh Jain** | `add` | Trie — `.minigitignore` | Implement Trie; `insert()`, `search()`, `remove()`, `isIgnored()`; support file-path and extension matching; implement `minigit add <file>` and `minigit add .`; skip ignored files; prevent duplicate staging | Staging/index handling and tests for `add` + `ignore` |
+| **Krish Bajaj** | `commit` | Deque — Undo/Redo | Implement `minigit commit "<message>"`; generate commit ID; create commit metadata; implement commit insertion; implement Deque for operation history; `undo`, `redo`, history-limit handling | Commit-related tests; connect commit state with storage |
+| **Snehil Joshi** | `log` | Doubly Linked List — Commit Navigation | Implement Doubly Linked List; `insert`, `find`, `next`, `prev`, traversal; implement `minigit log`; display commit ID, message and timestamp; support forward/backward history traversal | History loading, log tests, persistence integration |
+
+**Course:** PBL in DS CPP · DSCPP-III-2026-T296 · CSE (AI&ML)  
+**Institution:** Graphic Era University, Dehradun  
+
+---
+
+## References
+
+1. [Git SCM Official Website](https://git-scm.com)
+2. Scott Chacon & Ben Straub, [*Pro Git (2nd Edition)*](https://git-scm.com/book/en/v2)
+3. Pat Morin, [*Open Data Structures (in C++)*](https://opendatastructures.org/ods-cpp/)
+4. [NPTEL, IIT Delhi — Data Structures and Algorithms](https://nptel.ac.in/courses/106102064)
