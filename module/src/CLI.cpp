@@ -79,6 +79,27 @@ int CLI::printIgnore(const IgnoreResult& r, const std::string& p) {
     }
 }
 
+int CLI::printCommit(const CommitResult& r) {
+    if (r.status != CommitResult::SUCCESS) {
+        if (!r.errorMessage.empty()) {
+            std::cout << "fatal: " << r.errorMessage << "\n";
+        } else {
+            std::cout << "fatal: commit failed\n";
+        }
+        return 1;
+    }
+    if (!r.commitId.empty()) {
+        std::string shortId = r.commitId.size() >= 7 ? r.commitId.substr(0, 7) : r.commitId;
+        std::cout << "[main " << shortId << "] " << r.message << "\n";
+        if (r.filesCommitted > 0) {
+            std::cout << r.filesCommitted << " file(s) committed\n";
+        }
+    } else {
+        std::cout << r.message << "\n";
+    }
+    return 0;
+}
+
 void CLI::printUsage() {
     std::cout << "usage: minigit <command> [<args>]\n\n"
               << "These are common MiniGit commands:\n"
@@ -90,6 +111,9 @@ void CLI::printUsage() {
               << "   ignore <pattern>     Add a pattern to .minigitignore\n"
               << "   ignore -r <pattern>  Remove a pattern from .minigitignore\n"
               << "   ignore -v <path>     Verify whether a path is ignored and show line number\n"
+              << "   commit \"<message>\"   Record staged changes to commit history\n"
+              << "   commit undo          Undo the last commit / staging state\n"
+              << "   commit redo          Redo the previously undone commit / staging state\n"
               << "   install              Install MiniGit globally into system PATH\n"
               << "   uninstall            Uninstall MiniGit from system PATH\n";
 }
@@ -351,6 +375,35 @@ int CLI::dispatch(int argc, char** argv, const std::string& root) {
             IgnoreResult r = ignoreAdd(pattern, root);
             return printIgnore(r, pattern);
         }
+    } else if (cmd == "commit") {
+        if (argc < 3) {
+            std::cout << "usage: minigit commit \"<message>\" | minigit commit -m \"<message>\" | minigit commit undo | minigit commit redo\n";
+            return 1;
+        }
+        std::string arg2 = argv[2];
+        if (arg2 == "undo") {
+            CommitResult r = undoCommit(root);
+            return printCommit(r);
+        } else if (arg2 == "redo") {
+            CommitResult r = redoCommit(root);
+            return printCommit(r);
+        } else if (arg2 == "-m" || arg2 == "--message") {
+            if (argc < 4) {
+                std::cout << "fatal: option '-m' requires a message argument\n";
+                return 1;
+            }
+            CommitResult r = commitRepo(argv[3], root);
+            return printCommit(r);
+        } else {
+            CommitResult r = commitRepo(arg2, root);
+            return printCommit(r);
+        }
+    } else if (cmd == "undo") {
+        CommitResult r = undoCommit(root);
+        return printCommit(r);
+    } else if (cmd == "redo") {
+        CommitResult r = redoCommit(root);
+        return printCommit(r);
     } else if (cmd == "help" || cmd == "--help" || cmd == "-h") {
         printUsage();
         return 0;
