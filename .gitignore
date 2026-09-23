@@ -1,0 +1,19 @@
+# Build artifacts (keep main release executable minigit.exe)
+*.o
+*.obj
+test_trie*
+test_add*
+test_init*
+test_cli*
+minigit_demo*
+!minigit.exe
+
+# Local test minigit directories
+.minigit/
+.minigitignore
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*~

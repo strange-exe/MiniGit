@@ -1,0 +1,6 @@
+#pragma once
+#include "ghc/filesystem.hpp"
+#ifdef ERROR
+#undef ERROR
+#endif
+namespace std { namespace filesystem = ghc::filesystem; }
