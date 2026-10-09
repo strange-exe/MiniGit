@@ -1,1106 +1,1003 @@
-/* ==========================================================================
-   MINIGIT — INTERACTIVE STATE ENGINE & MOTION UI CONTROLLER
-   ========================================================================== */
+"use strict";
+/* MiniGit sandbox: a browser port of the C++ modules in module/src.
+   Output strings, argument rules and data structures follow the real CLI. */
 
-// --------------------------------------------------------------------------
-// 1. MINIGIT SIMULATOR STATE MACHINE (Complete CLI + Trie + Staging)
-// --------------------------------------------------------------------------
-class MiniGitSimulator {
-    constructor() {
-        this.resetState();
+// ---------------------------------------------------------------------------
+// Sample project (the working tree)
+// ---------------------------------------------------------------------------
+const SAMPLE_FILES = {
+    "README.md": "# calc\nA four-function calculator.\n",
+    "calc.h": "#pragma once\ndouble eval(const char* expr);\n",
+    "main.cpp": "#include \"calc.h\"\nint main() { return 0; }\n",
+    "src/lexer.cpp": "// splits input into tokens\n",
+    "src/parser.cpp": "// builds the expression tree\n",
+    "logs/debug.log": "debug: started\n",
+    "build/main.o": "\u007fELF",
+};
+const HISTORY_LIMIT = 20;  // DEFAULT_HISTORY_LIMIT in CommitHistory.h
+const REPO_PATH = "C:\\calc";
+
+// ---------------------------------------------------------------------------
+// Helpers (PathUtils.h)
+// ---------------------------------------------------------------------------
+function reverseString(s) { return s.split("").reverse().join(""); }
+
+function normalizePath(input) {
+    let s = String(input).replace(/\\/g, "/");
+    if (!s) return "";
+    const trailing = s.endsWith("/");
+    const absolute = s.startsWith("/");
+    const out = [];
+    for (const part of s.split("/")) {
+        if (part === "" || part === ".") continue;
+        if (part === ".." && out.length && out[out.length - 1] !== "..") out.pop();
+        else out.push(part);
     }
+    let n = (absolute ? "/" : "") + out.join("/");
+    if (n === "") return ".";
+    if (trailing && n !== "." && !n.endsWith("/")) n += "/";
+    return n;
+}
 
-    resetState() {
-        this.isInitialized = false;
-        this.stagedFiles = new Map(); // filename -> { hash, timestamp }
-        this.commits = [];           // Array of commit objects (Linked List)
-        this.headCommit = null;       // Top commit pointer
-        this.rollbackStack = [];     // LIFO Stack for rollback states
-        this.commitCounter = 0;
-        this.ignoreRules = [];       // array of { pattern, line }
-        this.trieNodes = { char: 'ROOT', children: {}, isTerminal: false, line: -1, pattern: '' };
+function isOutsideRepo(norm) {
+    if (!norm) return true;
+    if (norm === ".." || norm.startsWith("../")) return true;
+    if (norm[0] === "/") return true;
+    return norm.length > 1 && norm[1] === ":";
+}
+
+function trim(s) { return String(s).replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ""); }
+
+// SHA-1, as in CommitCommand.cpp (commit ids hash the commit content)
+function sha1(text) {
+    const bytes = Array.from(new TextEncoder().encode(text));
+    const bitLen = bytes.length * 8;
+    bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    for (let i = 7; i >= 0; i--) bytes.push(i >= 4 ? 0 : (bitLen >>> (i * 8)) & 0xff);
+    let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0;
+    const w = new Array(80);
+    for (let c = 0; c < bytes.length; c += 64) {
+        for (let i = 0; i < 16; i++) {
+            w[i] = (bytes[c + i * 4] << 24) | (bytes[c + i * 4 + 1] << 16) | (bytes[c + i * 4 + 2] << 8) | bytes[c + i * 4 + 3];
+        }
+        for (let i = 16; i < 80; i++) {
+            const v = w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16];
+            w[i] = (v << 1) | (v >>> 31);
+        }
+        let a = h0, b = h1, cc = h2, d = h3, e = h4;
+        for (let i = 0; i < 80; i++) {
+            let f, k;
+            if (i < 20) { f = (b & cc) | (~b & d); k = 0x5a827999; }
+            else if (i < 40) { f = b ^ cc ^ d; k = 0x6ed9eba1; }
+            else if (i < 60) { f = (b & cc) | (b & d) | (cc & d); k = 0x8f1bbcdc; }
+            else { f = b ^ cc ^ d; k = 0xca62c1d6; }
+            const t = (((a << 5) | (a >>> 27)) + f + e + k + w[i]) | 0;
+            e = d; d = cc; cc = (b << 30) | (b >>> 2); b = a; a = t;
+        }
+        h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + cc) | 0; h3 = (h3 + d) | 0; h4 = (h4 + e) | 0;
     }
+    return [h0, h1, h2, h3, h4].map((h) => (h >>> 0).toString(16).padStart(8, "0")).join("");
+}
 
-    init() {
-        if (this.isInitialized) {
-            return { success: false, msg: "Reinitialized existing MiniGit repository in .minigit/" };
+function formatTimestamp(unix) {
+    const d = new Date(Number(unix) * 1000);
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// ---------------------------------------------------------------------------
+// Trie (Trie.cpp): prefix rules match anything that starts with their key
+// ---------------------------------------------------------------------------
+class Trie {
+    constructor() { this.clear(); }
+    clear() { this.root = { children: new Map(), terminal: false }; this.count = 0; }
+    insert(key, pattern, line, prefixRule) {
+        if (!key) return false;
+        let cur = this.root;
+        for (const ch of key) {
+            if (!cur.children.has(ch)) cur.children.set(ch, { children: new Map(), terminal: false });
+            cur = cur.children.get(ch);
         }
-        this.isInitialized = true;
-        return { success: true, msg: "Initialized empty MiniGit repository in .minigit/" };
+        if (cur.terminal) return false;
+        Object.assign(cur, { terminal: true, prefixRule, line, pattern });
+        this.count++;
+        return true;
     }
-
-    // --- Ignore Module (Trie-based) ---
-    ignoreAdd(pattern) {
-        if (!this.isInitialized) return { success: false, msg: "fatal: not a minigit repository (run 'minigit init' first)" };
-        if (!pattern) return { success: false, msg: "usage: minigit ignore <pattern>\nexample: minigit ignore *.log" };
-
-        pattern = pattern.replace(/\\/g, '/');
-        const existing = this.ignoreRules.find(r => r.pattern === pattern);
-        if (existing) {
-            return { success: true, msg: `'${pattern}' already ignored at line ${existing.line}` };
+    find(key) {
+        let cur = this.root;
+        for (const ch of key) {
+            cur = cur.children.get(ch);
+            if (!cur) return null;
         }
-
-        const line = this.ignoreRules.length + 1;
-        this.ignoreRules.push({ pattern, line });
-        this.rebuildTrie();
-        return { success: true, msg: `Ignored '${pattern}' (line ${line})` };
+        return cur.terminal ? { pattern: cur.pattern, line: cur.line } : null;
     }
-
-    ignoreRemove(pattern) {
-        if (!this.isInitialized) return { success: false, msg: "fatal: not a minigit repository" };
-        if (!pattern) return { success: false, msg: "usage: minigit ignore -r <pattern>" };
-
-        pattern = pattern.replace(/\\/g, '/');
-        const idx = this.ignoreRules.findIndex(r => r.pattern === pattern);
-        if (idx === -1) {
-            return { success: false, msg: `'${pattern}' is not present in .minigitignore` };
+    findMatch(text) {
+        let cur = this.root;
+        for (let i = 0; ; i++) {
+            if (cur.terminal && (cur.prefixRule || i === text.length)) return { pattern: cur.pattern, line: cur.line };
+            if (i === text.length) return null;
+            cur = cur.children.get(text[i]);
+            if (!cur) return null;
         }
-        const removed = this.ignoreRules.splice(idx, 1)[0];
-        // Shift line numbers
-        this.ignoreRules.forEach((r, i) => r.line = i + 1);
-        this.rebuildTrie();
-        return { success: true, msg: `Removed '${pattern}' (was line ${removed.line})` };
-    }
-
-    ignoreVerify(path) {
-        if (!this.isInitialized) return { success: false, msg: "fatal: not a minigit repository" };
-        if (!path) return { success: false, msg: "usage: minigit ignore -v <path>" };
-
-        path = path.replace(/\\/g, '/');
-        const m = this.checkIgnore(path);
-        if (m) {
-            return { success: true, msg: `'${path}' is ignored by '${m.pattern}' (line ${m.line})` };
-        }
-        return { success: true, msg: `'${path}' is not ignored` };
-    }
-
-    checkIgnore(path) {
-        path = path.replace(/\\/g, '/');
-        if (path === '.minigit' || path.startsWith('.minigit/')) {
-            return { pattern: '.minigit/', line: 0 };
-        }
-        for (const r of this.ignoreRules) {
-            if (r.pattern.startsWith('*.')) {
-                const ext = r.pattern.substring(1);
-                if (path.endsWith(ext)) return r;
-            } else if (r.pattern.endsWith('/')) {
-                if (path.startsWith(r.pattern) || (path + '/').startsWith(r.pattern)) return r;
-            } else if (path === r.pattern) {
-                return r;
-            }
-        }
-        return null;
-    }
-
-    rebuildTrie() {
-        this.trieNodes = { char: 'ROOT', children: {}, isTerminal: false, line: -1, pattern: '' };
-        for (const r of this.ignoreRules) {
-            let key = r.pattern;
-            if (key.startsWith('*.')) {
-                key = key.substring(1).split('').reverse().join('');
-            }
-            let curr = this.trieNodes;
-            for (const ch of key) {
-                if (!curr.children[ch]) {
-                    curr.children[ch] = { char: ch, children: {}, isTerminal: false, line: -1, pattern: '' };
-                }
-                curr = curr.children[ch];
-            }
-            curr.isTerminal = true;
-            curr.line = r.line;
-            curr.pattern = r.pattern;
-        }
-    }
-
-    // --- Staging Module (Index) ---
-    add(filename) {
-        if (!this.isInitialized) {
-            return { success: false, msg: "fatal: not a minigit repository (run 'minigit init' first)" };
-        }
-        if (!filename) {
-            return { success: false, msg: "usage: minigit add <file> | minigit add ." };
-        }
-
-        if (filename === '.') {
-            const sampleFiles = ['main.cpp', 'app.h', 'README.md', 'logs/debug.log', 'build/output.o', 'secret.env'];
-            let staged = 0, skipped = 0;
-            sampleFiles.forEach(f => {
-                if (this.checkIgnore(f)) {
-                    skipped++;
-                } else {
-                    const hash = "blob_" + Math.random().toString(36).substring(2, 8);
-                    this.stagedFiles.set(f, { hash, timestamp: new Date().toLocaleTimeString() });
-                    staged++;
-                }
-            });
-            return { success: true, msg: `staged ${staged} file(s), skipped ${skipped} ignored` };
-        }
-
-        filename = filename.replace(/\\/g, '/');
-        const ig = this.checkIgnore(filename);
-        if (ig) {
-            return { success: true, msg: `'${filename}' is ignored by '${ig.pattern}' (line ${ig.line})` };
-        }
-
-        if (this.stagedFiles.has(filename)) {
-            return { success: true, msg: `'${filename}' is already staged` };
-        }
-
-        const hash = "blob_" + Math.random().toString(36).substring(2, 8);
-        this.stagedFiles.set(filename, { hash, timestamp: new Date().toLocaleTimeString() });
-        return { success: true, msg: `Staged '${filename}'` };
-    }
-
-    addVerify(filename) {
-        if (!this.isInitialized) return { success: false, msg: "fatal: not a minigit repository" };
-        if (!filename) return { success: false, msg: "usage: minigit add -v <filename>" };
-
-        filename = filename.replace(/\\/g, '/');
-        if (this.stagedFiles.has(filename)) {
-            return { success: true, msg: `'${filename}' is staged` }; // IS_STAGED status
-        }
-        const ig = this.checkIgnore(filename);
-        if (ig) {
-            return { success: true, msg: `'${filename}' is ignored by '${ig.pattern}' (line ${ig.line})` };
-        }
-        return { success: true, msg: `'${filename}' is not staged` };
-    }
-
-    remove(filename) {
-        if (!this.isInitialized) return { success: false, msg: "fatal: not a minigit repository" };
-        if (!filename) return { success: false, msg: "usage: minigit remove <file|.>" };
-
-        if (filename === '.') {
-            const count = this.stagedFiles.size;
-            this.stagedFiles.clear();
-            return { success: true, msg: `Unstaged ${count} files` };
-        }
-        filename = filename.replace(/\\/g, '/');
-        if (!this.stagedFiles.has(filename)) {
-            return { success: true, msg: `'${filename}' is not staged` };
-        }
-        this.stagedFiles.delete(filename);
-        return { success: true, msg: `Unstaged '${filename}'` };
-    }
-
-    commit(message) {
-        if (!this.isInitialized) {
-            return { success: false, msg: "fatal: not a minigit repository" };
-        }
-        if (this.stagedFiles.size === 0) {
-            return { success: false, msg: "nothing to commit, working tree clean" };
-        }
-        if (!message) {
-            return { success: false, msg: "usage: minigit commit -m \"commit message\"" };
-        }
-
-        this.commitCounter++;
-        const commitId = "c" + this.commitCounter + "_" + Math.random().toString(36).substring(2, 6);
-        const timestamp = new Date().toLocaleTimeString();
-
-        const newCommit = {
-            id: commitId,
-            message: message,
-            timestamp: timestamp,
-            parent: this.headCommit ? this.headCommit.id : null,
-            snapshots: new Map(this.stagedFiles)
-        };
-
-        this.commits.push(newCommit);
-        this.headCommit = newCommit;
-        
-        const stagedCount = this.stagedFiles.size;
-        this.stagedFiles.clear();
-
-        return { 
-            success: true, 
-            msg: `[main ${commitId}] ${message}\n ${stagedCount} file(s) changed, snapshots saved to .minigit/objects/` 
-        };
-    }
-
-    log() {
-        if (!this.isInitialized) {
-            return { success: false, msg: "fatal: not a minigit repository" };
-        }
-        if (this.commits.length === 0) {
-            return { success: true, msg: "No commits yet on branch 'main'" };
-        }
-
-        let output = "=== Commit History (Singly Linked List Traversal) ===\n\n";
-        let curr = this.headCommit;
-        
-        while (curr) {
-            const isHead = curr.id === this.headCommit.id ? " (HEAD -> main)" : "";
-            output += `commit ${curr.id}${isHead}\n`;
-            output += `Date:   ${curr.timestamp}\n`;
-            output += `Parent: ${curr.parent ? curr.parent : 'root'}\n`;
-            output += `    ${curr.message}\n\n`;
-            
-            curr = this.commits.find(c => c.id === curr.parent);
-        }
-
-        return { success: true, msg: output.trim() };
-    }
-
-    checkout(targetCommitId) {
-        if (!this.isInitialized) {
-            return { success: false, msg: "fatal: not a minigit repository" };
-        }
-        if (!targetCommitId) {
-            return { success: false, msg: "usage: minigit checkout <commit-id>" };
-        }
-
-        const targetCommit = this.commits.find(c => c.id === targetCommitId) ||
-                             this.commits.find(c => c.id.split('_')[0] === targetCommitId) ||
-                             this.commits.find(c => c.id.startsWith(targetCommitId));
-        if (!targetCommit) {
-            return { success: false, msg: `error: pathspec '${targetCommitId}' did not match any commit` };
-        }
-
-        this.rollbackStack.push({
-            previousHead: this.headCommit,
-            timestamp: new Date().toLocaleTimeString(),
-            description: `Checkout to ${targetCommit.id}`
-        });
-
-        this.headCommit = targetCommit;
-        return { success: true, msg: `HEAD is now at ${targetCommit.id} (${targetCommit.message})\nPushed pre-checkout state to Rollback Stack.` };
-    }
-
-    rollback() {
-        if (!this.isInitialized) {
-            return { success: false, msg: "fatal: not a minigit repository" };
-        }
-        if (this.rollbackStack.length === 0) {
-            return { success: false, msg: "rollback stack is empty: nothing to undo" };
-        }
-
-        const topState = this.rollbackStack.pop();
-        this.headCommit = topState.previousHead;
-        return { success: true, msg: `Rollback successful! Restored HEAD to ${this.headCommit.id} (${this.headCommit.message})\nPopped state off Rollback Stack.` };
     }
 }
 
-// Instantiate global simulator
-const repo = new MiniGitSimulator();
+// ---------------------------------------------------------------------------
+// Repository state
+// ---------------------------------------------------------------------------
+const repo = {};
 
-// --------------------------------------------------------------------------
-// 2. DOM INTERACTION & CLI INTERPRETER
-// --------------------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
-    const cliInput = document.getElementById('cliInput');
-    const cliSendBtn = document.getElementById('cliSendBtn');
-    const terminalOutput = document.getElementById('terminalOutput');
-    const clearTerminalBtn = document.getElementById('clearTerminalBtn');
-    const themeToggle = document.getElementById('themeToggle');
+function resetRepo() {
+    repo.files = Object.assign({}, SAMPLE_FILES);   // working tree
+    repo.initialized = false;
+    repo.index = [];                                 // sorted, like std::set
+    repo.objects = new Map();                        // id -> commit
+    repo.head = "";
+    repo.undo = [];                                  // std::deque: back = last element
+    repo.redo = [];
+    repo.ignoreLines = [];
+    repo.pathTrie = new Trie();
+    repo.extTrie = new Trie();
+    repo.installed = false;
+    repo.historySaved = false;
+}
 
-    let cmdHistory = [];
-    let historyIndex = -1;
-
-    function processCommand() {
-        const rawInput = cliInput.value.trim();
-        if (!rawInput) return;
-
-        cmdHistory.push(rawInput);
-        historyIndex = cmdHistory.length;
-
-        printTermLine(`minigit $ ${rawInput}`, 'cmd');
-        cliInput.value = '';
-
-        executeCommandString(rawInput);
-
-        const termBody = document.getElementById('terminalBody');
-        termBody.scrollTop = termBody.scrollHeight;
+// ---- working tree ----
+function isFile(p) { return Object.prototype.hasOwnProperty.call(repo.files, p); }
+function isDir(p) {
+    const d = p.endsWith("/") ? p : p + "/";
+    return Object.keys(repo.files).some((f) => f.startsWith(d));
+}
+function syncIgnoreFile() {
+    if (repo.initialized || repo.ignoreLines.length) {
+        repo.files[".minigitignore"] = repo.ignoreLines.map((l) => l + "\n").join("");
     }
+}
 
-    if (cliSendBtn) cliSendBtn.addEventListener('click', processCommand);
-    if (cliInput) {
-        cliInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                processCommand();
-            } else if (e.key === 'ArrowUp') {
-                if (historyIndex > 0) {
-                    historyIndex--;
-                    cliInput.value = cmdHistory[historyIndex];
-                }
-            } else if (e.key === 'ArrowDown') {
-                if (historyIndex < cmdHistory.length - 1) {
-                    historyIndex++;
-                    cliInput.value = cmdHistory[historyIndex];
-                } else {
-                    historyIndex = cmdHistory.length;
-                    cliInput.value = '';
-                }
-            }
-        });
+// ---- staging index: std::set (binary search keeps it sorted, O(log n)) ----
+function indexSearch(path) {
+    let lo = 0, hi = repo.index.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (repo.index[mid] < path) lo = mid + 1; else hi = mid;
     }
+    return lo;
+}
+function isStaged(p) { const i = indexSearch(p); return repo.index[i] === p; }
+function stage(p) {
+    const i = indexSearch(p);
+    if (repo.index[i] === p) return false;
+    repo.index.splice(i, 0, p);
+    return true;
+}
+function unstage(p) {
+    const i = indexSearch(p);
+    if (repo.index[i] !== p) return false;
+    repo.index.splice(i, 1);
+    return true;
+}
 
-    if (clearTerminalBtn) {
-        clearTerminalBtn.addEventListener('click', () => {
-            terminalOutput.innerHTML = '';
-            printTermLine("Terminal cleared.", 'info');
-        });
+// ---------------------------------------------------------------------------
+// Ignore engine (IgnoreManager.cpp)
+// ---------------------------------------------------------------------------
+function parseRule(raw) {
+    const t = trim(raw);
+    if (!t || t[0] === "#") return { kind: "NONE" };
+    if (t.length > 2 && t[0] === "*" && t[1] === "." && !/[*/\\]/.test(t.slice(2))) {
+        return { kind: "EXT", pattern: t, key: reverseString(t.slice(1)) };
     }
+    let n = normalizePath(t);
+    if (!n || n === "." || isOutsideRepo(n)) return { kind: "NONE" };
+    if (!n.endsWith("/") && isDir(n)) n += "/";
+    return { kind: n.endsWith("/") ? "DIR" : "FILE", pattern: n, key: n };
+}
 
-    // Tab Switching for Visualizers (Accessible ARIA compliant)
-    const vizTabs = document.querySelectorAll('.viz-tab');
-    vizTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            vizTabs.forEach(t => {
-                t.classList.remove('active');
-                t.setAttribute('aria-selected', 'false');
-            });
-            document.querySelectorAll('.viz-view').forEach(v => v.classList.remove('active'));
-
-            tab.classList.add('active');
-            tab.setAttribute('aria-selected', 'true');
-            const targetId = 'viz-' + tab.dataset.tab;
-            const targetView = document.getElementById(targetId);
-            if (targetView) targetView.classList.add('active');
-        });
+function rebuildTries() {
+    repo.pathTrie.clear();
+    repo.extTrie.clear();
+    repo.ignoreLines.forEach((line, i) => {
+        const r = parseRule(line);
+        if (r.kind === "EXT") repo.extTrie.insert(r.key, r.pattern, i + 1, true);
+        else if (r.kind === "DIR") repo.pathTrie.insert(r.key, r.pattern, i + 1, true);
+        else if (r.kind === "FILE") repo.pathTrie.insert(r.key, r.pattern, i + 1, false);
     });
+}
 
-    // Theme Toggle Listener
-    if (themeToggle) {
-        const savedTheme = localStorage.getItem('minigit-theme');
-        if (savedTheme === 'light') {
-            document.documentElement.classList.add('light-theme');
-            themeToggle.innerHTML = '<i class="fa-solid fa-sun"></i>';
+function lookupRule(r) {
+    if (r.kind === "EXT") return repo.extTrie.find(r.key);
+    if (r.kind === "NONE") return null;
+    return repo.pathTrie.find(r.key);
+}
+
+function ignoreVerify(path) {
+    let n = normalizePath(path);
+    if (!n || isOutsideRepo(n)) return { status: "ERROR", message: `invalid path '${path}'` };
+    if (!n.endsWith("/") && isDir(n)) n += "/";
+    if (n === ".minigit" || n.startsWith(".minigit/")) {
+        return { status: "IGNORED", pattern: ".minigit/", line: -1 };
+    }
+    const a = repo.pathTrie.findMatch(n);
+    const b = repo.extTrie.findMatch(reverseString(n));
+    if (!a && !b) return { status: "NOT_IGNORED" };
+    const best = a && (!b || a.line <= b.line) ? a : b;
+    return { status: "IGNORED", pattern: best.pattern, line: best.line };
+}
+function isIgnored(p) { return ignoreVerify(p).status === "IGNORED"; }
+
+function ignoreAdd(raw) {
+    const rule = parseRule(raw);
+    if (rule.kind === "NONE") return { status: "ERROR", message: `invalid pattern '${raw}'` };
+    const m = lookupRule(rule);
+    if (m) return { status: "ALREADY_PRESENT", line: m.line, pattern: m.pattern };
+    repo.ignoreLines.push(rule.pattern);
+    rebuildTries();
+    syncIgnoreFile();
+    return { status: "ADDED", line: repo.ignoreLines.length, pattern: rule.pattern };
+}
+
+function ignoreRemove(raw) {
+    const rule = parseRule(raw);
+    if (rule.kind === "NONE") return { status: "ERROR", message: `invalid pattern '${raw}'` };
+    let m = lookupRule(rule);
+    if (!m && rule.kind === "FILE") m = lookupRule({ kind: "DIR", key: rule.key + "/" });
+    if (!m) {
+        const res = { status: "NOT_PRESENT" };
+        const v = ignoreVerify(raw);
+        if (v.status === "IGNORED") {
+            res.message = `ignored by '${v.pattern}' (line ${v.line}), remove that rule instead`;
         }
-
-        themeToggle.addEventListener('click', () => {
-            document.documentElement.classList.toggle('light-theme');
-            const isLight = document.documentElement.classList.contains('light-theme');
-            themeToggle.innerHTML = isLight ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
-            localStorage.setItem('minigit-theme', isLight ? 'light' : 'dark');
-        });
+        return res;
     }
-
-    updateVisualizers();
-    setupPdfViewer();
-    setupMobileMenu();
-    setupScrollSpy();
-});
-
-function printTermLine(text, type = 'info') {
-    const output = document.getElementById('terminalOutput');
-    if (!output) return;
-
-    const line = document.createElement('div');
-    line.className = `term-line ${type}`;
-
-    if (text.includes('\n')) {
-        line.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
-    } else {
-        line.textContent = text;
-    }
-
-    output.appendChild(line);
-    scrollTerminalToBottom();
+    repo.ignoreLines.splice(m.line - 1, 1);
+    rebuildTries();
+    syncIgnoreFile();
+    return { status: "REMOVED", line: m.line, pattern: m.pattern };
 }
 
-function scrollTerminalToBottom() {
-    const termBody = document.getElementById('terminalBody');
-    if (termBody) {
-        requestAnimationFrame(() => {
-            termBody.scrollTop = termBody.scrollHeight;
-        });
-    }
-}
+// ---------------------------------------------------------------------------
+// add / add . / add -v / remove (AddCommand.cpp)
+// ---------------------------------------------------------------------------
+const NOT_A_REPO_ADD = "not a minigit repository (run 'minigit init')";
 
-function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// Parse Command String
-function executeCommandString(cmdStr) {
-    let parts = cmdStr.trim().split(/\s+/);
-    
-    if (parts[0] === 'minigit' || parts[0] === './minigit' || parts[0] === '.\\minigit') {
-        parts.shift();
-    }
-
-    const command = parts[0] ? parts[0].toLowerCase() : '';
-
-    if (command === 'help' || command === '--help') {
-        printTermLine(
-`MiniGit Command Reference:
-  minigit init                    - Initialize local .minigit/ repository
-  minigit add <file> | add .      - Stage files to index (respects .minigitignore)
-  minigit add -v <file>           - Verify if file is staged (IS_STAGED status)
-  minigit remove <file|.>         - Unstage file(s) from index
-  minigit ignore <pattern>        - Add pattern to .minigitignore (Trie indexed)
-  minigit ignore -r <pattern>     - Remove pattern from .minigitignore
-  minigit ignore -v <path>        - Check if ignored & return line number
-  minigit commit -m "<msg>"       - Create commit snapshot node
-  minigit log                     - Traverse commit linked list history
-  minigit checkout <commit-id>    - Restore version snapshot
-  minigit rollback                - Undo last checkout via Stack
-  minigit install                 - Auto-install to user PATH
-  clear                           - Clear terminal`, 'info');
-        return;
-    }
-
-    if (command === 'clear') {
-        document.getElementById('terminalOutput').innerHTML = '';
-        return;
-    }
-
-    let result;
-    switch (command) {
-        case 'init':
-            result = repo.init();
-            break;
-
-        case 'add':
-            if (parts[1] === '-v' || parts[1] === '--verify') {
-                result = repo.addVerify(parts[2]);
+function stageTree(startRel, r) {
+    const prefix = startRel ? startRel.replace(/\/?$/, "/") : "";
+    const walk = (dir) => {
+        const names = new Set();
+        for (const f of Object.keys(repo.files)) {
+            if (!f.startsWith(dir)) continue;
+            const rest = f.slice(dir.length);
+            const slash = rest.indexOf("/");
+            names.add(slash === -1 ? rest : rest.slice(0, slash + 1));
+        }
+        for (const name of [...names].sort()) {
+            const rel = dir + name;
+            if (name.endsWith("/")) {
+                if (isIgnored(rel)) { r.skipped++; continue; }  // skip the whole folder
+                walk(rel);
+            } else if (isIgnored(rel)) {
+                r.skipped++;
+            } else if (stage(rel)) {
+                r.staged++;
             } else {
-                result = repo.add(parts[1]);
+                r.already++;
             }
-            break;
-
-        case 'remove':
-        case 'rm':
-            result = repo.remove(parts[1]);
-            break;
-
-        case 'ignore':
-            if (parts[1] === '-r' || parts[1] === '--remove') {
-                result = repo.ignoreRemove(parts[2]);
-            } else if (parts[1] === '-v' || parts[1] === '--verify') {
-                result = repo.ignoreVerify(parts[2]);
-            } else if (parts[1]) {
-                result = repo.ignoreAdd(parts[1]);
-            } else {
-                if (repo.ignoreRules.length === 0) {
-                    result = { success: true, msg: "No patterns in .minigitignore" };
-                } else {
-                    const list = repo.ignoreRules.map(r => `${r.line}: ${r.pattern}`).join('\n');
-                    result = { success: true, msg: list };
-                }
-            }
-            break;
-
-        case 'commit':
-            const mIndex = parts.indexOf('-m');
-            if (mIndex === -1) {
-                result = { success: false, msg: "error: missing -m flag\nusage: minigit commit -m \"commit message\"" };
-            } else {
-                const commitMsg = parts.slice(mIndex + 1).join(' ').replace(/^["']|["']$/g, '').trim();
-                if (!commitMsg) {
-                    result = { success: false, msg: "error: commit message cannot be empty\nusage: minigit commit -m \"commit message\"" };
-                } else {
-                    result = repo.commit(commitMsg);
-                }
-            }
-            break;
-
-        case 'log':
-            result = repo.log();
-            break;
-
-        case 'checkout':
-            result = repo.checkout(parts[1]);
-            break;
-
-        case 'rollback':
-            result = repo.rollback();
-            break;
-
-        case 'install':
-            result = {
-                success: true,
-                msg: "Successfully installed MiniGit!\n  Installed binary to: %LOCALAPPDATA%\\Microsoft\\WindowsApps\\minigit.exe\nYou can now run 'minigit' directly without '.\\'."
-            };
-            break;
-
-        default:
-            result = { success: false, msg: `minigit: '${command}' is not a minigit command. Type 'help' for usage.` };
-            break;
-    }
-
-    if (result) {
-        printTermLine(result.msg, result.success ? 'success' : 'error');
-    }
-
-    updateVisualizers();
-}
-
-// --------------------------------------------------------------------------
-// 3. VISUALIZER RENDERING ENGINE
-// --------------------------------------------------------------------------
-function updateVisualizers() {
-    updateLinkedListVisualizer();
-    updateHashTableVisualizer();
-    updateTrieVisualizer();
-    updateStackVisualizer();
-    updateFileSystemVisualizer();
-}
-
-function updateLinkedListVisualizer() {
-    const container = document.getElementById('linkedListGraph');
-    const badge = document.getElementById('commitCountBadge');
-    if (!container) return;
-
-    if (!repo.isInitialized || repo.commits.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fa-solid fa-box-open"></i>
-                <p>Repository not initialized or no commits yet.</p>
-                <span>Type <code>minigit init</code> and create your first commit!</span>
-            </div>`;
-        if (badge) badge.textContent = '0 Commits';
-        return;
-    }
-
-    if (badge) badge.textContent = `${repo.commits.length} Commit(s)`;
-
-    let html = '';
-    const reversed = [...repo.commits].reverse();
-
-    reversed.forEach((c, index) => {
-        const isHead = repo.headCommit && repo.headCommit.id === c.id;
-        const headBadge = isHead ? '<span class="node-head-badge"><i class="fa-solid fa-crosshairs"></i> HEAD</span>' : '';
-        const nodeClass = isHead ? 'commit-node head-node' : 'commit-node';
-
-        html += `
-            <div class="${nodeClass}">
-                <div class="node-header">
-                    <span class="commit-id"><i class="fa-solid fa-code-commit"></i> ${c.id}</span>
-                    ${headBadge}
-                </div>
-                <div class="node-body">
-                    <p class="node-msg">"${escapeHtml(c.message)}"</p>
-                    <span class="node-time"><i class="fa-regular fa-clock"></i> ${c.timestamp}</span>
-                    <span class="node-parent"><i class="fa-solid fa-arrow-left"></i> Parent: ${c.parent ? c.parent : 'NULL (root)'}</span>
-                </div>
-            </div>
-        `;
-
-        if (index < reversed.length - 1) {
-            html += `<div class="node-pointer"><i class="fa-solid fa-arrow-right"></i></div>`;
-        }
-    });
-
-    container.innerHTML = html;
-}
-
-function updateHashTableVisualizer() {
-    const container = document.getElementById('hashTableGrid');
-    const badge = document.getElementById('stagedCountBadge');
-    if (!container) return;
-
-    if (!repo.isInitialized || repo.stagedFiles.size === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fa-solid fa-hashtag"></i>
-                <p>Staging area (.minigit/index) is currently empty.</p>
-                <span>Run <code>minigit add &lt;file&gt;</code> or <code>minigit add .</code> to stage files.</span>
-            </div>`;
-        if (badge) badge.textContent = '0 Files Staged';
-        return;
-    }
-
-    if (badge) badge.textContent = `${repo.stagedFiles.size} File(s) in Index`;
-
-    let html = '<div class="table-responsive"><table class="data-table"><thead><tr><th>File Path (Index Entry)</th><th>Content Hash (SHA Blob)</th><th>Staged At</th></tr></thead><tbody>';
-
-    repo.stagedFiles.forEach((val, file) => {
-        html += `
-            <tr>
-                <td><code><i class="fa-regular fa-file-lines text-cyan"></i> ${escapeHtml(file)}</code></td>
-                <td><span class="hash-badge">${val.hash}</span></td>
-                <td><small>${val.timestamp}</small></td>
-            </tr>
-        `;
-    });
-
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-}
-
-function updateTrieVisualizer() {
-    const container = document.getElementById('trieGraph');
-    const badge = document.getElementById('trieCountBadge');
-    if (!container) return;
-
-    if (!repo.isInitialized) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fa-solid fa-network-wired"></i>
-                <p>Repository not initialized.</p>
-                <span>Run <code>minigit init</code> and add rules using <code>minigit ignore &lt;pattern&gt;</code>.</span>
-            </div>`;
-        if (badge) badge.textContent = '0 Rules';
-        return;
-    }
-
-    if (badge) badge.textContent = `${repo.ignoreRules.length} Rule(s) in Trie`;
-
-    if (repo.ignoreRules.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fa-solid fa-network-wired"></i>
-                <p>No patterns in .minigitignore.</p>
-                <span>Try <code>minigit ignore *.log</code>, <code>minigit ignore build/</code>, or <code>minigit ignore secret.txt</code>.</span>
-            </div>`;
-        return;
-    }
-
-    let html = '<div class="trie-viz-wrapper">';
-    
-    // Left: Rules in .minigitignore
-    html += '<div class="trie-rules-panel"><h4><i class="fa-regular fa-file-code text-cyan"></i> .minigitignore Rules</h4><div class="trie-rule-list">';
-    repo.ignoreRules.forEach(r => {
-        const type = r.pattern.startsWith('*.') ? 'Reversed Ext Trie' : (r.pattern.endsWith('/') ? 'Directory Prefix Trie' : 'Exact Path Trie');
-        html += `
-            <div class="trie-rule-badge">
-                <span class="rule-line-no">Line ${r.line}</span>
-                <code class="rule-code">${escapeHtml(r.pattern)}</code>
-                <span class="rule-tag">${type}</span>
-            </div>
-        `;
-    });
-    html += '</div></div>';
-
-    // Right: Visual Prefix Tree Nodes
-    html += '<div class="trie-nodes-panel"><h4><i class="fa-solid fa-sitemap text-purple"></i> Active Trie Node Graph (Prefix Matching)</h4><div class="trie-tree-root">';
-    html += renderTrieNode(repo.trieNodes);
-    html += '</div></div>';
-
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-function renderTrieNode(node) {
-    if (!node) return '';
-    const childKeys = Object.keys(node.children);
-    let childHtml = '';
-    if (childKeys.length > 0) {
-        childHtml += '<div class="trie-children-container">';
-        for (const k of childKeys) {
-            childHtml += renderTrieNode(node.children[k]);
-        }
-        childHtml += '</div>';
-    }
-
-    const isTerm = node.isTerminal ? 'trie-terminal' : '';
-    const matchBadge = node.isTerminal ? `<span class="trie-match-pill"><i class="fa-solid fa-ban"></i> Line ${node.line}: ${node.pattern}</span>` : '';
-
-    return `
-        <div class="trie-node-wrapper ${isTerm}">
-            <div class="trie-node-chip">
-                <span class="trie-char">${node.char}</span>
-                ${matchBadge}
-            </div>
-            ${childHtml}
-        </div>
-    `;
-}
-
-function updateStackVisualizer() {
-    const container = document.getElementById('stackContainer');
-    const badge = document.getElementById('stackDepthBadge');
-    if (!container) return;
-
-    if (!repo.isInitialized || repo.rollbackStack.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fa-solid fa-layer-group"></i>
-                <p>Rollback stack is empty.</p>
-                <span>Executing <code>minigit checkout &lt;commit-id&gt;</code> pushes pre-checkout state onto the stack.</span>
-            </div>`;
-        if (badge) badge.textContent = 'Stack Depth: 0';
-        return;
-    }
-
-    if (badge) badge.textContent = `Stack Depth: ${repo.rollbackStack.length}`;
-
-    let html = '<div class="stack-list">';
-    const stackReversed = [...repo.rollbackStack].reverse();
-
-    stackReversed.forEach((s, idx) => {
-        const isTop = idx === 0 ? '<span class="stack-top-badge"><i class="fa-solid fa-arrow-down"></i> TOP OF STACK</span>' : '';
-        html += `
-            <div class="stack-item ${idx === 0 ? 'top-item' : ''}">
-                <div class="stack-item-header">
-                    <span><strong>Frame #${repo.rollbackStack.length - idx}</strong>: ${s.description}</span>
-                    ${isTop}
-                </div>
-                <div class="stack-item-body">
-                    <span>Target Head: <code>${s.previousHead ? s.previousHead.id : 'root'}</code></span>
-                    <small>${s.timestamp}</small>
-                </div>
-            </div>
-        `;
-    });
-
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-function updateFileSystemVisualizer() {
-    const container = document.getElementById('fileTreeContainer');
-    const badge = document.getElementById('fsStatusBadge');
-    if (!container) return;
-
-    if (!repo.isInitialized) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fa-solid fa-folder-closed"></i>
-                <p>No <code>.minigit/</code> directory found.</p>
-                <span>Run <code>minigit init</code> to generate storage structure.</span>
-            </div>`;
-        if (badge) badge.textContent = 'Not Initialized';
-        return;
-    }
-
-    if (badge) badge.textContent = 'Active (.minigit)';
-
-    let objectCount = repo.commits.length;
-    let headStr = repo.headCommit ? repo.headCommit.id : 'ref: refs/heads/main';
-    let stagedCount = repo.stagedFiles.size;
-    let ignoreCount = repo.ignoreRules.length;
-
-    container.innerHTML = `
-        <div class="tree-item folder"><i class="fa-solid fa-folder-open text-cyan"></i> .minigit/</div>
-        <div class="tree-item folder" style="padding-left:20px;"><i class="fa-solid fa-folder-open text-amber"></i> objects/ (${objectCount} commit snapshots)</div>
-        <div class="tree-item file" style="padding-left:38px;"><i class="fa-solid fa-file-code text-purple"></i> index (${stagedCount} paths staged)</div>
-        <div class="tree-item file" style="padding-left:38px;"><i class="fa-solid fa-tag text-emerald"></i> HEAD -> [${headStr}]</div>
-        <div class="tree-item file" style="padding-left:20px;"><i class="fa-solid fa-file-shield text-red"></i> .minigitignore (${ignoreCount} rules loaded in Trie)</div>
-    `;
-}
-
-// --------------------------------------------------------------------------
-// 4. PRESETS & ACTIONS
-// --------------------------------------------------------------------------
-function executeInSandbox(cmd) {
-    const input = document.getElementById('cliInput');
-    if (input) {
-        input.value = cmd;
-        document.getElementById('cliSendBtn').click();
-    }
-    const simSection = document.getElementById('simulator');
-    if (simSection) {
-        simSection.scrollIntoView({ behavior: 'smooth' });
-    }
-}
-
-function copyText(text, btnElement = null) {
-    if (!btnElement && window.event && window.event.currentTarget) {
-        btnElement = window.event.currentTarget;
-    }
-
-    navigator.clipboard.writeText(text).then(() => {
-        if (btnElement) {
-            const originalHtml = btnElement.innerHTML;
-            btnElement.innerHTML = '<i class="fa-solid fa-check text-emerald"></i> Copied!';
-            btnElement.classList.add('copied');
-            setTimeout(() => {
-                btnElement.innerHTML = originalHtml;
-                btnElement.classList.remove('copied');
-            }, 1800);
-        }
-        showToast(`Copied "${text}" to clipboard!`);
-    }).catch(err => {
-        console.error("Failed to copy", err);
-        showToast(`Copied "${text}"`);
-    });
-}
-
-function showToast(msg) {
-    const existing = document.querySelector('.minigit-toast');
-    if (existing) existing.remove();
-
-    const toast = document.createElement('div');
-    toast.className = 'minigit-toast';
-    toast.innerHTML = `<i class="fa-solid fa-circle-check text-cyan"></i> <span>${escapeHtml(msg)}</span>`;
-    document.body.appendChild(toast);
-
-    requestAnimationFrame(() => toast.classList.add('show'));
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 2400);
-}
-
-let activePresetTimers = [];
-
-function clearActivePresetTimers() {
-    activePresetTimers.forEach(id => clearTimeout(id));
-    activePresetTimers = [];
-    setPresetButtonsLoading(false);
-}
-
-function setPresetButtonsLoading(running, activeBtn = null) {
-    const presetBtns = document.querySelectorAll('.btn-preset:not(.btn-reset)');
-    presetBtns.forEach(b => {
-        if (running) {
-            b.disabled = true;
-            b.style.pointerEvents = 'none';
-            b.style.opacity = '0.6';
-        } else {
-            b.disabled = false;
-            b.style.pointerEvents = '';
-            b.style.opacity = '';
-            if (b.dataset.origHtml) {
-                b.innerHTML = b.dataset.origHtml;
-                delete b.dataset.origHtml;
-            }
-        }
-    });
-
-    if (activeBtn && running) {
-        activeBtn.dataset.origHtml = activeBtn.innerHTML;
-        activeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Running...';
-    }
-}
-
-function schedulePresetStep(cmd, delay, isFinal = false) {
-    const timerId = setTimeout(() => {
-        executeCommandString(cmd);
-        activePresetTimers = activePresetTimers.filter(id => id !== timerId);
-        if (isFinal) {
-            setPresetButtonsLoading(false);
-        }
-    }, delay);
-    activePresetTimers.push(timerId);
-}
-
-function runPresetWorkflow(type, event = null) {
-    let clickedBtn = null;
-    if (event && event.currentTarget) clickedBtn = event.currentTarget;
-    else if (window.event && window.event.currentTarget) clickedBtn = window.event.currentTarget;
-
-    clearActivePresetTimers();
-    resetSandbox(false);
-    setPresetButtonsLoading(true, clickedBtn);
-    
-    if (type === 'full') {
-        executeCommandString('minigit init');
-        schedulePresetStep('minigit ignore *.log', 300);
-        schedulePresetStep('minigit ignore build/', 600);
-        schedulePresetStep('minigit add main.cpp', 900);
-        schedulePresetStep('minigit add -v main.cpp', 1200);
-        schedulePresetStep('minigit add .', 1500);
-        schedulePresetStep('minigit commit -m "feat: initial commit with Trie ignore engine"', 1900, true);
-    } else if (type === 'ignore_demo') {
-        executeCommandString('minigit init');
-        schedulePresetStep('minigit ignore *.log', 300);
-        schedulePresetStep('minigit ignore build/', 600);
-        schedulePresetStep('minigit ignore secret.txt', 900);
-        schedulePresetStep('minigit ignore -v build/output.o', 1200);
-        schedulePresetStep('minigit ignore -v app.log', 1500);
-        schedulePresetStep('minigit add app.log', 1800, true);
-    } else if (type === 'checkout_demo') {
-        executeCommandString('minigit init');
-        schedulePresetStep('minigit add file1.txt', 300);
-        schedulePresetStep('minigit commit -m "Commit 1"', 600);
-        schedulePresetStep('minigit add file2.txt', 900);
-        schedulePresetStep('minigit commit -m "Commit 2"', 1200);
-        schedulePresetStep('minigit checkout c1', 1600, true);
-    } else if (type === 'init_add_commit') {
-        executeCommandString('minigit init');
-        schedulePresetStep('minigit add main.cpp', 300);
-        schedulePresetStep('minigit add -v main.cpp', 600);
-        schedulePresetStep('minigit commit -m "Initial commit"', 1000, true);
-    }
-}
-
-function resetSandbox(notify = true) {
-    clearActivePresetTimers();
-    repo.resetState();
-    const termOutput = document.getElementById('terminalOutput');
-    if (termOutput) termOutput.innerHTML = '';
-    if (notify) {
-        printTermLine("Repository reset. Ready for new operations.", 'warning');
-    }
-    updateVisualizers();
-}
-
-function setupPdfViewer() {
-    const pdfFrame = document.getElementById('pdfFrame');
-    const pdfTabs = document.querySelectorAll('.pdf-tab');
-    const pdfTitle = document.getElementById('pdfDocTitle');
-    const pdfDesc = document.getElementById('pdfDocDesc');
-    const pdfDownload = document.getElementById('pdfDownloadBtn');
-    const pdfOpenTab = document.getElementById('pdfOpenTabBtn');
-    const pdfFullscreen = document.getElementById('pdfFullscreenBtn');
-    const pdfContainer = document.getElementById('pdfViewerContainer');
-
-    const docs = {
-        report: {
-            file: 'Reports/report.pdf',
-            title: 'MiniGit Phase 1 Design Report',
-            desc: 'Comprehensive specification covering problem motivation, system architecture, data structure analysis, class designs, and execution flows.',
-            downloadName: 'MiniGit-Phase1-Report.pdf'
-        },
-        ppt: {
-            file: 'Reports/ppt.pdf',
-            title: 'MiniGit Phase 1 Presentation Deck',
-            desc: 'Official presentation deck outlining problem motivation, modular 5-layer design, command set, and roadmap for Phase 1.',
-            downloadName: 'MiniGit-Phase1-Presentation.pdf'
         }
     };
+    walk(prefix);
+}
 
-    pdfTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const docKey = tab.dataset.doc;
-            if (!docs[docKey]) return;
+function summarize(r) {
+    return {
+        status: r.staged === 0 && r.already > 0 ? "ALREADY_STAGED" : "STAGED",
+        message: `staged ${r.staged} file(s), ${r.already} already staged, skipped ${r.skipped} ignored`,
+    };
+}
 
-            pdfTabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
+function addAll() {
+    if (!repo.initialized) return { status: "ERROR", message: NOT_A_REPO_ADD };
+    const r = { staged: 0, already: 0, skipped: 0 };
+    stageTree("", r);
+    return summarize(r);
+}
 
-            const doc = docs[docKey];
-            if (pdfFrame) pdfFrame.src = `${doc.file}#toolbar=1&view=FitH`;
-            if (pdfTitle) pdfTitle.textContent = doc.title;
-            if (pdfDesc) pdfDesc.textContent = doc.desc;
-            if (pdfDownload) {
-                pdfDownload.href = doc.file;
-                pdfDownload.download = doc.downloadName;
-            }
-            if (pdfOpenTab) pdfOpenTab.href = doc.file;
-        });
-    });
+function addFile(path) {
+    if (!repo.initialized) return { status: "ERROR", message: NOT_A_REPO_ADD };
+    const rel = normalizePath(path);
+    if (!rel || isOutsideRepo(rel)) return { status: "ERROR", message: `path '${path}' is outside the repository` };
+    if (rel === ".") return addAll();
+    const plain = rel.replace(/\/$/, "");
+    const dir = isDir(plain);
+    if (!dir && !isFile(plain)) return { status: "NOT_FOUND" };
+    const ig = ignoreVerify(rel);
+    if (ig.status === "IGNORED") return { status: "IGNORED", message: ig.pattern, line: ig.line };
+    if (dir) {
+        const r = { staged: 0, already: 0, skipped: 0 };
+        stageTree(plain, r);
+        return summarize(r);
+    }
+    return stage(plain) ? { status: "STAGED", count: 1 } : { status: "ALREADY_STAGED" };
+}
 
-    if (pdfFullscreen && pdfContainer) {
-        pdfFullscreen.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                pdfContainer.requestFullscreen().catch(err => console.warn(err));
-            } else {
-                document.exitFullscreen();
-            }
-        });
+function addVerify(path) {
+    if (!repo.initialized) return { status: "ERROR", message: NOT_A_REPO_ADD };
+    const rel = normalizePath(path);
+    if (!rel || isOutsideRepo(rel)) return { status: "ERROR", message: `path '${path}' is outside the repository` };
+    if (isStaged(rel)) return { status: "IS_STAGED" };
+    const ig = ignoreVerify(rel);
+    if (ig.status === "IGNORED") return { status: "IGNORED", message: ig.pattern, line: ig.line };
+    const plain = rel.replace(/\/$/, "");
+    if (!isFile(plain) && !isDir(plain)) return { status: "NOT_FOUND" };
+    return { status: "NOT_STAGED" };
+}
+
+function removeFile(path) {
+    if (!repo.initialized) return { status: "ERROR", message: NOT_A_REPO_ADD };
+    if (path === ".") {
+        const count = repo.index.length;
+        repo.index = [];
+        return count > 0 ? { status: "UNSTAGED", count } : { status: "NOT_STAGED" };
+    }
+    const rel = normalizePath(path);
+    if (!rel || isOutsideRepo(rel)) return { status: "ERROR", message: `path '${path}' is outside the repository` };
+    let n = unstage(rel) ? 1 : 0;
+    if (n === 0) {  // a folder: unstage every staged file below it
+        const prefix = rel.endsWith("/") ? rel : rel + "/";
+        for (const f of [...repo.index]) if (f.startsWith(prefix) && unstage(f)) n++;
+    }
+    return n === 0 ? { status: "NOT_STAGED" } : { status: "UNSTAGED", count: n };
+}
+
+// ---------------------------------------------------------------------------
+// commit / undo / redo (CommitCommand.cpp, CommitHistory.cpp)
+// ---------------------------------------------------------------------------
+const NOT_A_REPO_COMMIT = "not a minigit repository (or any of the parent directories)";
+
+function recordOperation(entry) {
+    repo.undo.push(entry);
+    repo.redo = [];
+    while (repo.undo.length > HISTORY_LIMIT) repo.undo.shift();  // pop_front()
+    repo.historySaved = true;
+}
+
+function commitRepo(message) {
+    if (!repo.initialized) return { status: "ERROR", message: NOT_A_REPO_COMMIT };
+    const clean = trim(String(message).replace(/[\r\n]+/g, " "));
+    if (!clean) return { status: "ERROR", message: "commit message cannot be empty" };
+    if (!repo.index.length) return { status: "ERROR", message: "nothing to commit" };
+
+    const parent = repo.head;
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    let canonical = `parent ${parent}\ntimestamp ${timestamp}\nmessage ${clean}\n`;
+    for (const f of repo.index) {
+        const content = repo.files[f] || "";
+        canonical += `file ${f} ${content.length}\n${content}\n`;
+    }
+    const id = sha1(canonical);
+    repo.objects.set(id, { id, parent, timestamp, message: clean, files: [...repo.index] });
+    recordOperation({ commitId: parent, staged: [...repo.index], message: clean, timestamp });
+    repo.head = id;
+    const count = repo.index.length;
+    repo.index = [];
+    return { status: "SUCCESS", commitId: id, message: clean, files: count };
+}
+
+function moveHistory(from, to, word) {
+    if (!repo.initialized) return { status: "ERROR", message: NOT_A_REPO_COMMIT };
+    if (!from.length) return { status: "ERROR", message: `nothing to ${word.toLowerCase()}` };
+    to.push({ commitId: repo.head, staged: [...repo.index], message: "", timestamp: "" });
+    const restored = from.pop();
+    repo.head = restored.commitId;
+    repo.index = [...restored.staged].sort();
+    return { status: "SUCCESS", commitId: restored.commitId, message: `${word} completed` };
+}
+
+// ---------------------------------------------------------------------------
+// log (CommitLog.cpp: doubly linked list rebuilt from HEAD)
+// ---------------------------------------------------------------------------
+function buildCommitList() {
+    const newestFirst = [];
+    const seen = new Set();
+    for (let cur = repo.head; cur && !seen.has(cur); ) {
+        seen.add(cur);
+        const c = repo.objects.get(cur);
+        if (!c) break;
+        newestFirst.push(c);
+        cur = c.parent;
+    }
+    // link oldest -> newest, both directions
+    const nodes = newestFirst.reverse().map((c) => ({ c, prev: null, next: null }));
+    nodes.forEach((n, i) => { n.prev = nodes[i - 1] || null; n.next = nodes[i + 1] || null; });
+    return { head: nodes[0] || null, tail: nodes[nodes.length - 1] || null, size: nodes.length };
+}
+
+function showLog(reverse) {
+    if (!repo.initialized) return { status: "NOT_A_REPO" };
+    const list = buildCommitList();
+    if (!list.size) return { status: "EMPTY" };
+    const entries = [];
+    for (let n = reverse ? list.head : list.tail; n; n = reverse ? n.next : n.prev) entries.push(n.c);
+    return { status: "OK", entries };
+}
+
+// ---------------------------------------------------------------------------
+// Output mapping (CLI::print*)
+// ---------------------------------------------------------------------------
+function printAdd(r, p) {
+    switch (r.status) {
+        case "STAGED": return [0, r.message || `Staged '${p}'`];
+        case "ALREADY_STAGED": return [0, r.message || `'${p}' is already staged`];
+        case "IGNORED": return [0, `'${p}' is ignored by '${r.message}' (line ${r.line})`];
+        case "NOT_FOUND": return [1, `'${p}' does not exist`];
+        case "UNSTAGED": return [0, r.count > 1 ? `Unstaged ${r.count} files` : `Unstaged '${p}'`];
+        case "NOT_STAGED": return [0, `'${p}' is not staged`];
+        case "IS_STAGED": return [0, `'${p}' is staged`];
+        default: return [1, `error: ${r.message}`];
     }
 }
 
-function setupMobileMenu() {
-    const toggleBtn = document.getElementById('mobileMenuToggle');
-    const navMenu = document.getElementById('primaryNav');
-    const header = document.getElementById('siteHeader');
-    if (!toggleBtn || !navMenu) return;
+function printIgnore(r, p) {
+    switch (r.status) {
+        case "ADDED": return [0, `Ignored '${r.pattern}' (line ${r.line})`];
+        case "ALREADY_PRESENT": return [0, `'${p}' already ignored at line ${r.line}`];
+        case "REMOVED": return [0, `Removed '${r.pattern}' (was line ${r.line})`];
+        case "NOT_PRESENT": return [1, `'${p}' is not present in .minigitignore${r.message ? ` (${r.message})` : ""}`];
+        case "IGNORED": return [0, `'${p}' is ignored by '${r.pattern}' (line ${r.line})`];
+        case "NOT_IGNORED": return [0, `'${p}' is not ignored`];
+        default: return [1, `error: ${r.message}`];
+    }
+}
 
-    function closeMenu() {
-        navMenu.classList.remove('open');
-        toggleBtn.setAttribute('aria-expanded', 'false');
-        toggleBtn.innerHTML = '<i class="fa-solid fa-bars"></i>';
+function printCommit(r) {
+    if (r.status !== "SUCCESS") return [1, `fatal: ${r.message || "commit failed"}`];
+    if (!r.commitId) return [0, r.message];
+    let out = `[main ${r.commitId.slice(0, 7)}] ${r.message}`;
+    if (r.files > 0) out += `\n${r.files} file(s) committed`;
+    return [0, out];
+}
+
+function printLog(r) {
+    if (r.status === "EMPTY") return [0, "No commits yet"];
+    if (r.status === "NOT_A_REPO") return [1, "fatal: not a minigit repository (run 'minigit init')"];
+    const out = r.entries.map((e) => {
+        let s = `commit ${e.id.slice(0, 7)}\n`;
+        if (e.parent) s += `parent  ${e.parent.slice(0, 7)}\n`;
+        s += `date    ${formatTimestamp(e.timestamp)}\n\n    ${e.message}\n    (${e.files.length} file(s))`;
+        return s;
+    });
+    return [0, out.join("\n\n")];
+}
+
+function validateIgnoreInput(pattern) {
+    if (!pattern) return "empty pattern is not allowed";
+    if (!trim(pattern)) return "pattern cannot be only whitespace";
+    if (isOutsideRepo(normalizePath(pattern))) return `pattern '${pattern}' escapes the repository`;
+    return null;
+}
+
+// ---------------------------------------------------------------------------
+// Command table (CLI.cpp): one row per command; help and usage come from it
+// ---------------------------------------------------------------------------
+const USAGE = -1;
+
+function isFlag(s, short, long) { return s === short || s === long; }
+
+const COMMANDS = [
+    { name: "init", aliases: [], forms: [["init", "Create an empty MiniGit repository or reinitialize an existing one"]],
+      run(a) {
+          if (a.length) return USAGE;
+          const again = repo.initialized;
+          repo.initialized = true;
+          syncIgnoreFile();
+          return [0, `${again ? "Reinitialized existing" : "Initialized empty"} MiniGit repository in ${REPO_PATH}\\.minigit`];
+      } },
+    { name: "add", aliases: [], forms: [
+        ["add <file|dir>", "Stage a file, or every non-ignored file in a directory"],
+        ["add .", "Stage every non-ignored file in the repository"],
+        ["add -v <file>", "Show whether a file is staged"]],
+      run(a) {
+          if (a.length === 1) return printAdd(a[0] === "." ? addAll() : addFile(a[0]), a[0]);
+          if (a.length === 2 && isFlag(a[0], "-v", "--verify")) return printAdd(addVerify(a[1]), a[1]);
+          return USAGE;
+      } },
+    { name: "remove", aliases: ["rm"], forms: [["remove <file|dir|.>", "Unstage files (files on disk are never touched)"]],
+      run(a) { return a.length === 1 ? printAdd(removeFile(a[0]), a[0]) : USAGE; } },
+    { name: "ignore", aliases: [], forms: [
+        ["ignore", "List the rules in .minigitignore with line numbers"],
+        ["ignore <pattern>", "Add a rule to .minigitignore"],
+        ["ignore -r <pattern>", "Remove a rule from .minigitignore"],
+        ["ignore -v <path>", "Show whether a path is ignored, and by which line"]],
+      run(a) {
+          if (!a.length) {
+              if (!repo.ignoreLines.length) return [0, "No patterns in .minigitignore"];
+              return [0, repo.ignoreLines.map((l, i) => `${i + 1}: ${l}`).join("\n")];
+          }
+          const remove = isFlag(a[0], "-r", "--remove");
+          const verify = isFlag(a[0], "-v", "--verify");
+          if ((remove || verify) && a.length === 1) return [1, `minigit ignore: option '${a[0]}' requires a pattern argument`];
+          if (a.length !== (remove || verify ? 2 : 1)) return USAGE;
+          const pattern = a[a.length - 1];
+          const err = validateIgnoreInput(pattern);
+          if (err) return [1, `minigit ignore: ${err}`];
+          const r = remove ? ignoreRemove(pattern) : verify ? ignoreVerify(pattern) : ignoreAdd(pattern);
+          return printIgnore(r, pattern);
+      } },
+    { name: "commit", aliases: [], forms: [
+        ['commit "<message>"', "Record the staged files as a new commit"],
+        ['commit -m "<message>"', "Same, with an explicit -m flag"],
+        ["commit undo", "Undo the last commit and restore its staged files"],
+        ["commit redo", "Redo the last undone commit"]],
+      run(a) {
+          if (a.length === 1 && a[0] === "undo") return printCommit(moveHistory(repo.undo, repo.redo, "Undo"));
+          if (a.length === 1 && a[0] === "redo") return printCommit(moveHistory(repo.redo, repo.undo, "Redo"));
+          if (a.length && isFlag(a[0], "-m", "--message")) {
+              if (a.length === 1) return [1, `fatal: option '${a[0]}' requires a message argument`];
+              return a.length === 2 ? printCommit(commitRepo(a[1])) : USAGE;
+          }
+          return a.length === 1 ? printCommit(commitRepo(a[0])) : USAGE;
+      } },
+    { name: "undo", aliases: [], forms: [["undo", "Shortcut for 'commit undo'"]],
+      run(a) { return a.length ? USAGE : printCommit(moveHistory(repo.undo, repo.redo, "Undo")); } },
+    { name: "redo", aliases: [], forms: [["redo", "Shortcut for 'commit redo'"]],
+      run(a) { return a.length ? USAGE : printCommit(moveHistory(repo.redo, repo.undo, "Redo")); } },
+    { name: "log", aliases: [], forms: [["log [--reverse]", "Show commit history, newest first (oldest first with --reverse)"]],
+      run(a) {
+          if (!a.length) return printLog(showLog(false));
+          if (a.length === 1 && a[0] === "--reverse") return printLog(showLog(true));
+          return USAGE;
+      } },
+    { name: "install", aliases: ["--install"], forms: [["install", "Copy MiniGit into a folder on your PATH"]],
+      run(a) {
+          if (a.length) return USAGE;
+          repo.installed = true;
+          return [0, "Successfully installed MiniGit!\n  Installed binary to: C:\\Users\\you\\AppData\\Local\\Microsoft\\WindowsApps\\minigit.exe\n\nYou can now run 'minigit' directly from any folder in PowerShell or Command Prompt!\n(sandbox: nothing was written to your computer)"];
+      } },
+    { name: "uninstall", aliases: ["--uninstall"], forms: [["uninstall", "Remove the installed copy from your PATH"]],
+      run(a) {
+          if (a.length) return USAGE;
+          if (!repo.installed) return [0, "MiniGit is not currently installed in WindowsApps"];
+          repo.installed = false;
+          return [0, "Successfully uninstalled MiniGit from:\n  C:\\Users\\you\\AppData\\Local\\Microsoft\\WindowsApps\\minigit.exe"];
+      } },
+    { name: "help", aliases: ["--help", "-h"], forms: [["help [<command>]", "Show this list, or the usage of one command"]],
+      run(a) {
+          if (!a.length) return [0, usageText()];
+          if (a.length !== 1) return USAGE;
+          const c = findCommand(a[0]);
+          if (!c) return [1, `minigit help: '${a[0]}' is not a minigit command`];
+          const width = Math.max(...c.forms.map((f) => f[0].length));
+          return [0, `${commandUsage(c)}\n\n${c.forms.map((f) => `   ${f[0].padEnd(width + 2)}${f[1]}`).join("\n")}`];
+      } },
+];
+
+function findCommand(name) {
+    return COMMANDS.find((c) => c.name === name || c.aliases.includes(name)) || null;
+}
+function commandUsage(c) { return "usage: " + c.forms.map((f) => `minigit ${f[0]}`).join(" | "); }
+function usageText() {
+    const width = Math.max(...COMMANDS.flatMap((c) => c.forms.map((f) => f[0].length)));
+    const rows = COMMANDS.flatMap((c) => c.forms.map((f) => `   ${f[0].padEnd(width + 2)}${f[1]}`));
+    return `usage: minigit <command> [<args>]\n\nThese are common MiniGit commands:\n${rows.join("\n")}\n\nSee 'minigit help <command>' for the usage of one command.`;
+}
+
+// Levenshtein distance, two rolling rows (as in CLI.cpp)
+function editDistance(a, b) {
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+        const cur = [i];
+        for (let j = 1; j <= b.length; j++) {
+            cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        }
+        prev = cur;
+    }
+    return prev[b.length];
+}
+function suggestCommand(typo) {
+    let best = "", bestD = 3;
+    for (const c of COMMANDS) {
+        const d = editDistance(typo, c.name);
+        if (d < bestD) { bestD = d; best = c.name; }
+    }
+    return best;
+}
+
+function dispatch(args) {
+    if (!args.length) return [1, usageText()];
+    const [name, ...rest] = args;
+    const c = findCommand(name);
+    if (!c) {
+        const guess = suggestCommand(name);
+        return [1, `minigit: '${name}' is not a minigit command. See 'minigit --help'.` +
+            (guess ? `\n\nThe most similar command is\n    ${guess}` : "")];
+    }
+    if (rest.length === 1 && (rest[0] === "--help" || rest[0] === "-h")) return [0, commandUsage(c)];
+    const res = c.run(rest);
+    return res === USAGE ? [1, commandUsage(c)] : res;
+}
+
+// Shell-style tokenizer: "quoted words" stay together
+function tokenize(line) {
+    const out = [];
+    const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+    let m;
+    while ((m = re.exec(line))) out.push(m[1] ?? m[2] ?? m[3]);
+    return out;
+}
+
+// Which data-structure view a command should bring forward
+function viewFor(name) {
+    if (name === "add" || name === "remove" || name === "rm") return "index";
+    if (name === "ignore") return "trie";
+    if (name === "undo" || name === "redo") return "deque";
+    if (name === "commit" || name === "log") return "commits";
+    if (name === "init") return "fs";
+    return null;
+}
+
+// ---------------------------------------------------------------------------
+// Terminal
+// ---------------------------------------------------------------------------
+const $ = (sel) => document.querySelector(sel);
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function printLine(text, kind) {
+    const out = $("#terminalOutput");
+    const line = document.createElement("div");
+    line.className = `term-line ${kind}`;
+    line.textContent = text;
+    out.appendChild(line);
+    const body = $("#terminalBody");
+    body.scrollTop = body.scrollHeight;
+}
+
+function runCommand(raw) {
+    const line = trim(raw);
+    if (!line) return;
+    printLine(line, "cmd");
+    let args = tokenize(line);
+    const first = args[0];
+
+    if (first === "clear" || first === "cls") { $("#terminalOutput").textContent = ""; return; }
+    if (first === "ls" || first === "dir") {
+        printLine(Object.keys(repo.files).sort().join("\n"), "out");
+        return;
+    }
+    if (first === "minigit" || first === "minigit.exe" || first === "./minigit" || first === ".\\minigit") {
+        args = args.slice(1);
+    } else if (!findCommand(first)) {
+        printLine(`${first}: not recognised here. Commands start with minigit, for example: minigit help`, "err");
+        return;
     }
 
-    function openMenu() {
-        navMenu.classList.add('open');
-        toggleBtn.setAttribute('aria-expanded', 'true');
-        toggleBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    const [code, text] = dispatch(args);
+    if (text) printLine(text, code === 0 ? "out" : "err");
+    renderViews();
+    const view = viewFor(args[0]);
+    if (view) selectTab(view, false);
+}
+
+// ---------------------------------------------------------------------------
+// Data structure views
+// ---------------------------------------------------------------------------
+function emptyState(html) { return `<div class="empty">${html}</div>`; }
+
+function renderCommits() {
+    const el = $("#viz-commits");
+    const list = buildCommitList();
+    if (!repo.initialized || !list.size) {
+        el.innerHTML = emptyState(`No commits on <code>main</code> yet. Stage files, then <code>minigit commit "message"</code>.`);
+        return;
     }
+    const parts = [];
+    for (let n = list.head; n; n = n.next) {
+        const isHead = n.c.id === repo.head;
+        parts.push(`<div class="node${isHead ? " head" : ""}"><code>${n.c.id.slice(0, 7)}${isHead ? "  HEAD" : ""}</code><p>${escapeHtml(n.c.message)}</p><small>${n.c.files.length} file(s)</small></div>`);
+        if (n.next) parts.push(`<span class="link" aria-hidden="true">&lt;-&gt;</span>`);
+    }
+    const unreachable = repo.objects.size - list.size;
+    el.innerHTML = `<div class="viz-meta"><span><strong>Doubly linked list</strong>, oldest to newest, rebuilt from HEAD</span><span>${list.size} reachable${unreachable ? `, ${unreachable} undone (still in objects/)` : ""}</span></div><div class="dll">${parts.join("")}</div>`;
+}
 
-    toggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isOpen = navMenu.classList.contains('open');
-        if (isOpen) {
-            closeMenu();
-        } else {
-            openMenu();
+function renderIndex() {
+    const el = $("#viz-index");
+    if (!repo.initialized) { el.innerHTML = emptyState(`Run <code>minigit init</code> to create <code>.minigit/index</code>.`); return; }
+    if (!repo.index.length) { el.innerHTML = emptyState(`The index is empty. Try <code>minigit add .</code>`); return; }
+    const items = repo.index.map((p, i) => `<li>${escapeHtml(p)}<span>${i}</span></li>`).join("");
+    el.innerHTML = `<div class="viz-meta"><span><strong>std::set</strong>, kept sorted, no duplicates</span><span>${repo.index.length} path(s)</span></div><ul class="set-list">${items}</ul>`;
+}
+
+// Draw a trie with single-child chains collapsed into one edge label
+function trieLines(node, prefix, out, display) {
+    const kids = [...node.children.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    kids.forEach(([ch, child], i) => {
+        let label = ch;
+        let cur = child;
+        while (!cur.terminal && cur.children.size === 1) {
+            const [c2, n2] = cur.children.entries().next().value;
+            label += c2;
+            cur = n2;
         }
+        const last = i === kids.length - 1;
+        const tag = cur.terminal ? `   <b>line ${cur.line}: ${escapeHtml(cur.pattern)}</b>` : "";
+        out.push(`${prefix}${last ? "`-- " : "|-- "}${escapeHtml(display(label))}${tag}`);
+        trieLines(cur, prefix + (last ? "    " : "|   "), out, display);
     });
+}
 
-    // Close when clicking outside of header
-    document.addEventListener('click', (e) => {
-        if (header && !header.contains(e.target)) {
-            closeMenu();
+function renderTrie() {
+    const el = $("#viz-trie");
+    if (!repo.ignoreLines.length) {
+        el.innerHTML = emptyState(`No rules yet. Try <code>minigit ignore *.log</code> or <code>minigit ignore build/</code>.`);
+        return;
+    }
+    const draw = (trie) => {
+        if (!trie.count) return "(empty)";
+        const out = ["(root)"];
+        trieLines(trie.root, "", out, (s) => s);
+        return out.join("\n");
+    };
+    const rules = repo.ignoreLines.map((l, i) => {
+        const r = parseRule(l);
+        const kind = r.kind === "EXT" ? `extension, key ${escapeHtml(r.key)}` : r.kind === "DIR" ? "folder prefix" : "exact file";
+        return `<li><span>${i + 1}</span>${escapeHtml(l)}  <span>(${kind})</span></li>`;
+    }).join("");
+    el.innerHTML = `<div class="viz-meta"><span><strong>Two tries</strong>: forward for paths, reversed for extensions</span><span>${repo.ignoreLines.length} rule(s)</span></div>
+        <div class="tries"><div><h4>Path trie <span>(files, folders)</span></h4><pre class="trie-tree">${draw(repo.pathTrie)}</pre></div>
+        <div><h4>Extension trie <span>(keys stored reversed)</span></h4><pre class="trie-tree">${draw(repo.extTrie)}</pre></div></div>
+        <ul class="rules" aria-label=".minigitignore">${rules}</ul>`;
+}
+
+function laneHtml(items, label) {
+    if (!items.length) return `<div class="lane" aria-label="${label}, empty"><span class="lane-item"><small>empty</small></span></div>`;
+    return `<div class="lane" aria-label="${label}">${items.map((s, i) => {
+        const id = s.commitId ? s.commitId.slice(0, 7) : "no commit";
+        return `<span class="lane-item${i === items.length - 1 ? " back" : ""}">HEAD ${id}<small>${s.staged.length} staged</small></span>`;
+    }).join("")}</div><div class="lane-ends"><span>front</span><span>back</span></div>`;
+}
+
+function renderDeques() {
+    const el = $("#viz-deque");
+    if (!repo.initialized) { el.innerHTML = emptyState(`Run <code>minigit init</code>, then commit to start recording states.`); return; }
+    el.innerHTML = `<div class="viz-meta"><span><strong>Two std::deque</strong>; a commit pushes onto undo and clears redo</span><span>limit ${HISTORY_LIMIT}</span></div>
+        <div class="deques"><div><h4>Undo deque <span>(${repo.undo.length})</span></h4>${laneHtml(repo.undo, "Undo deque")}</div>
+        <div><h4>Redo deque <span>(${repo.redo.length})</span></h4>${laneHtml(repo.redo, "Redo deque")}</div></div>`;
+}
+
+function renderFs() {
+    const el = $("#viz-fs");
+    const rows = [];
+    const pad = (s, n) => s + " ".repeat(Math.max(1, n - s.length));
+    if (repo.initialized) {
+        rows.push("<b>.minigit/</b>");
+        rows.push(`  ${pad("HEAD", 20)}<s>ref: refs/heads/main</s>`);
+        if (repo.head || repo.historySaved) rows.push(`  ${pad("refs/heads/main", 20)}<i>${repo.head ? repo.head.slice(0, 7) : "(empty)"}</i>`);
+        else rows.push(`  ${pad("refs/heads/", 20)}<s>(no commits yet)</s>`);
+        rows.push(`  ${pad("index", 20)}<s>${repo.index.length} path(s)</s>`);
+        if (repo.historySaved) rows.push(`  ${pad("history", 20)}<s>${repo.undo.length} undo, ${repo.redo.length} redo</s>`);
+        rows.push(`  ${pad("objects/", 20)}<s>${repo.objects.size} commit(s)</s>`);
+        for (const c of repo.objects.values()) rows.push(`    ${pad(c.id.slice(0, 7) + "/", 18)}<s>metadata, snapshot/ (${c.files.length})</s>`);
+    } else {
+        rows.push("<s>(no .minigit/ yet: run minigit init)</s>");
+    }
+    rows.push("");
+    for (const f of Object.keys(repo.files).sort()) {
+        let status = "";
+        if (repo.initialized && isStaged(f)) status = "<i>staged</i>";
+        else {
+            const v = ignoreVerify(f);
+            if (v.status === "IGNORED") status = `<s>ignored by ${escapeHtml(v.pattern)}</s>`;
         }
-    });
+        rows.push(`${pad(escapeHtml(f), 22)}${status}`);
+    }
+    el.innerHTML = `<div class="viz-meta"><span><strong>~/calc</strong>, the sample project on disk</span><span>${repo.initialized ? "repository" : "not a repository"}</span></div><pre class="fs">${rows.join("\n")}</pre>`;
+}
 
-    // Close on Escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            closeMenu();
-        }
-    });
+function renderViews() {
+    renderCommits();
+    renderIndex();
+    renderTrie();
+    renderDeques();
+    renderFs();
+}
 
-    navMenu.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', () => {
-            closeMenu();
+// ---------------------------------------------------------------------------
+// Tabs (ARIA tabs with arrow-key navigation)
+// ---------------------------------------------------------------------------
+function selectTab(name, focus) {
+    document.querySelectorAll(".viz-tab").forEach((t) => {
+        const on = t.id === `tab-${name}`;
+        t.setAttribute("aria-selected", String(on));
+        t.tabIndex = on ? 0 : -1;
+        if (on && focus) t.focus();
+    });
+    document.querySelectorAll(".viz-view").forEach((v) => v.classList.toggle("active", v.id === `viz-${name}`));
+}
+
+function setupTabs() {
+    const tabs = [...document.querySelectorAll(".viz-tab")];
+    tabs.forEach((tab, i) => {
+        tab.addEventListener("click", () => selectTab(tab.id.slice(4), false));
+        tab.addEventListener("keydown", (e) => {
+            const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+            if (!step) return;
+            e.preventDefault();
+            selectTab(tabs[(i + step + tabs.length) % tabs.length].id.slice(4), true);
         });
     });
 }
 
-function setupScrollSpy() {
-    const header = document.getElementById('siteHeader');
-    const navLinks = document.querySelectorAll('.nav-link[data-section]');
-    const sections = Array.from(navLinks)
-        .map(link => document.getElementById(link.dataset.section))
-        .filter(Boolean);
+// ---------------------------------------------------------------------------
+// Presets
+// ---------------------------------------------------------------------------
+const PRESETS = {
+    track: ["minigit init", "minigit add main.cpp", "minigit add -v main.cpp", "minigit add .", 'minigit commit -m "first commit"', "minigit log"],
+    ignore: ["minigit init", "minigit ignore *.log", "minigit ignore build/", "minigit ignore -v logs/debug.log", "minigit ignore -v build/main.o", "minigit add .", "minigit ignore"],
+    undo: ["minigit init", "minigit add .", 'minigit commit -m "first commit"', "minigit add .", 'minigit commit -m "second commit"', "minigit undo", "minigit redo", "minigit undo", "minigit log"],
+};
+let presetTimer = null;
 
-    // Dynamic Island Header elevation on scroll
-    let ticking = false;
-    window.addEventListener('scroll', () => {
-        if (!ticking) {
-            window.requestAnimationFrame(() => {
-                if (header) {
-                    if (window.scrollY > 25) {
-                        header.classList.add('scrolled');
-                    } else {
-                        header.classList.remove('scrolled');
-                    }
-                }
-                ticking = false;
+function resetSandbox(announce) {
+    clearTimeout(presetTimer);
+    resetRepo();
+    $("#terminalOutput").textContent = "";
+    if (announce) printLine("Sandbox reset: back to the sample project, no .minigit/.", "note");
+    renderViews();
+    selectTab("commits", false);
+}
+
+function playPreset(name) {
+    resetSandbox(false);
+    const steps = PRESETS[name];
+    const buttons = document.querySelectorAll("[data-preset]");
+    buttons.forEach((b) => (b.disabled = true));
+    let i = 0;
+    const next = () => {
+        runCommand(steps[i++]);
+        if (i < steps.length) presetTimer = setTimeout(next, reduceMotion.matches ? 0 : 450);
+        else buttons.forEach((b) => (b.disabled = false));
+    };
+    next();
+}
+
+// ---------------------------------------------------------------------------
+// Page chrome: theme, menu, active nav, reveal, PDF viewer
+// ---------------------------------------------------------------------------
+function setupTheme() {
+    const btn = $("#themeToggle");
+    const apply = (t) => {
+        document.documentElement.setAttribute("data-theme", t);
+        const light = t === "light";
+        btn.innerHTML = `<i class="ph ${light ? "ph-moon" : "ph-sun"}" aria-hidden="true"></i>`;
+        btn.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+    };
+    apply(document.documentElement.getAttribute("data-theme") || "dark");
+    btn.addEventListener("click", () => {
+        const t = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+        apply(t);
+        try { localStorage.setItem("minigit-theme", t); } catch (e) { /* private mode */ }
+    });
+}
+
+function setupMenu() {
+    const btn = $("#mobileMenuToggle");
+    const nav = $("#primaryNav");
+    const set = (open) => {
+        nav.classList.toggle("open", open);
+        btn.setAttribute("aria-expanded", String(open));
+        btn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+        btn.innerHTML = `<i class="ph ${open ? "ph-x" : "ph-list"}" aria-hidden="true"></i>`;
+    };
+    btn.addEventListener("click", () => set(!nav.classList.contains("open")));
+    nav.addEventListener("click", (e) => { if (e.target.closest("a")) set(false); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") set(false); });
+}
+
+function setupObservers() {
+    if (!("IntersectionObserver" in window)) {
+        document.querySelectorAll(".reveal").forEach((el) => el.classList.add("in"));
+        return;
+    }
+    // header border once the hero top leaves the viewport
+    const header = $("#siteHeader");
+    new IntersectionObserver(([e]) => header.classList.toggle("scrolled", !e.isIntersecting))
+        .observe($("#overview"));
+
+    // active nav link for the section in view
+    const links = [...document.querySelectorAll(".nav-link[data-section]")];
+    const spy = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+            if (!e.isIntersecting) return;
+            links.forEach((l) => {
+                const on = l.dataset.section === e.target.id;
+                l.classList.toggle("active", on);
+                if (on) l.setAttribute("aria-current", "true"); else l.removeAttribute("aria-current");
             });
-            ticking = true;
-        }
-    }, { passive: true });
-
-    // Smooth header offset scrolling for nav links
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            const secId = link.dataset.section;
-            const targetSec = document.getElementById(secId);
-            if (targetSec) {
-                e.preventDefault();
-                const headerOffset = 84;
-                const elementPosition = targetSec.getBoundingClientRect().top;
-                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-
-                window.scrollTo({
-                    top: offsetPosition,
-                    behavior: 'smooth'
-                });
-
-                // Update active immediately on click
-                navLinks.forEach(l => {
-                    l.classList.remove('active');
-                    l.removeAttribute('aria-current');
-                });
-                link.classList.add('active');
-                link.setAttribute('aria-current', 'page');
-            }
         });
+    }, { rootMargin: "-30% 0px -60% 0px" });
+    links.forEach((l) => { const s = document.getElementById(l.dataset.section); if (s) spy.observe(s); });
+
+    // reveal once
+    const rev = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); rev.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -8% 0px" });
+    document.querySelectorAll(".reveal").forEach((el) => rev.observe(el));
+}
+
+function setupPdf() {
+    const docs = {
+        report: { file: "Reports/report.pdf", title: "MiniGit Phase 1 design report", desc: "Problem, scope, architecture, data structure choices and the three-phase plan.", name: "MiniGit-Phase1-Report.pdf" },
+        ppt: { file: "Reports/ppt.pdf", title: "MiniGit Phase 1 presentation", desc: "The slide deck: motivation, layered design, command set and roadmap.", name: "MiniGit-Phase1-Presentation.pdf" },
+    };
+    const tabs = document.querySelectorAll(".pdf-tab");
+    tabs.forEach((tab) => tab.addEventListener("click", () => {
+        const d = docs[tab.dataset.doc];
+        tabs.forEach((t) => { const on = t === tab; t.setAttribute("aria-selected", String(on)); t.tabIndex = on ? 0 : -1; });
+        $("#pdfFrame").src = `${d.file}#view=FitH`;
+        $("#pdfDocTitle").textContent = d.title;
+        $("#pdfDocDesc").textContent = d.desc;
+        $("#pdfOpenTabBtn").href = d.file;
+        const dl = $("#pdfDownloadBtn");
+        dl.href = d.file;
+        dl.download = d.name;
+    }));
+    const box = $("#pdfViewerContainer");
+    $("#pdfFullscreenBtn").addEventListener("click", () => {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
+    });
+}
+
+function toast(msg) {
+    const t = $("#toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+    resetRepo();
+    renderViews();
+    setupTabs();
+    setupTheme();
+    setupMenu();
+    setupObservers();
+    setupPdf();
+
+    const input = $("#cliInput");
+    const history = [];
+    let pos = 0;
+    $("#termForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const v = input.value;
+        if (trim(v)) { history.push(v); pos = history.length; }
+        input.value = "";
+        runCommand(v);
+    });
+    input.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowUp" && pos > 0) { input.value = history[--pos]; e.preventDefault(); }
+        else if (e.key === "ArrowDown") { pos = Math.min(history.length, pos + 1); input.value = history[pos] || ""; e.preventDefault(); }
     });
 
-    // IntersectionObserver for tracking active navigation link
-    if ('IntersectionObserver' in window && sections.length > 0) {
-        const observerOptions = {
-            root: null,
-            rootMargin: '-20% 0px -55% 0px',
-            threshold: 0
-        };
+    $("#clearTerminalBtn").addEventListener("click", () => { $("#terminalOutput").textContent = ""; });
 
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const sectionId = entry.target.id;
-                    navLinks.forEach(link => {
-                        if (link.dataset.section === sectionId) {
-                            link.classList.add('active');
-                            link.setAttribute('aria-current', 'page');
-                        } else {
-                            link.classList.remove('active');
-                            link.removeAttribute('aria-current');
-                        }
-                    });
-                }
-            });
-        }, observerOptions);
+    document.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => {
+        if (b.dataset.preset === "reset") { resetSandbox(true); toast("Sandbox reset"); }
+        else playPreset(b.dataset.preset);
+    }));
 
-        sections.forEach(sec => observer.observe(sec));
-    }
-}
+    // Chips run in place; buttons elsewhere on the page also bring the sandbox into view
+    document.querySelectorAll("[data-run]").forEach((b) => b.addEventListener("click", () => {
+        runCommand(b.dataset.run);
+        if (!b.closest("#simulator")) {
+            $("#simulator").scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth" });
+        }
+    }));
+});
