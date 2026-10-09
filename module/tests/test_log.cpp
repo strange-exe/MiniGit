@@ -4,8 +4,10 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 #include "AddCommand.h"
+#include "CLI.h"
 #include "CommitCommand.h"
 #include "InitCommand.h"
 #include "LogCommand.h"
@@ -23,7 +25,7 @@ namespace fs = std::filesystem;
 
 static void writeFile(const fs::path& p, const std::string& s) {
     fs::create_directories(p.parent_path());
-    std::ofstream(p, std::ios::binary) << s;
+    std::ofstream(p.string(), std::ios::binary) << s;
 }
 
 int main() {
@@ -94,6 +96,26 @@ int main() {
     lr = showLog(R);
     CHECK(lr.entries.size() == 2);
     CHECK(lr.entries[0].commitId == c2.commitId);
+
+    // `minigit log` is reachable through the CLI dispatcher
+    {
+        std::stringstream out;
+        std::streambuf* old = std::cout.rdbuf(out.rdbuf());
+        const char* logArgs[] = {"minigit", "log"};
+        int rc = CLI::dispatch(2, const_cast<char**>(logArgs), R);
+        const char* revArgs[] = {"minigit", "log", "--reverse"};
+        int rcRev = CLI::dispatch(3, const_cast<char**>(revArgs), R);
+        const char* badArgs[] = {"minigit", "log", "--bogus"};
+        int rcBad = CLI::dispatch(3, const_cast<char**>(badArgs), R);
+        std::cout.rdbuf(old);
+
+        std::string s = out.str();
+        CHECK(rc == 0 && rcRev == 0 && rcBad == 1);
+        CHECK(s.find("commit " + c2.commitId.substr(0, 7)) != std::string::npos);
+        CHECK(s.find("second commit") != std::string::npos);
+        CHECK(s.find("is not a minigit command") == std::string::npos);
+        CHECK(s.find("usage: minigit log [--reverse]") != std::string::npos);
+    }
 
     fs::remove_all(rootP);
     std::cout << "test_log: all tests passed\n";

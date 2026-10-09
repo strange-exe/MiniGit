@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
 #include <sstream>
@@ -20,7 +21,11 @@ std::string formatTimestamp(const std::string& unixTimestamp) {
     std::time_t t = static_cast<std::time_t>(std::atoll(unixTimestamp.c_str()));
     std::tm tmBuf{};
 #if defined(_WIN32)
-    localtime_s(&tmBuf, &t);
+    // localtime_s is hidden by MinGW under -std=c++14; the Windows CRT keeps
+    // localtime()'s buffer per thread, so copying it out is safe.
+    std::tm* local = std::localtime(&t);
+    if (!local) return unixTimestamp;
+    tmBuf = *local;
 #else
     localtime_r(&t, &tmBuf);
 #endif
