@@ -4,11 +4,22 @@
 #include <filesystem>
 #include <iostream>
 
+#include "PathUtils.h"
+
 #if defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
 #include <windows.h>
 #endif
 
 namespace minigit {
+
+#if !(defined(_WIN32) || defined(__WIN32__) || defined(WIN32))
+// Location of the running binary. current_path() is the user's working
+// directory, which is usually NOT where the executable lives.
+static std::filesystem::path selfExePath() {
+    std::error_code ec;
+    return std::filesystem::read_symlink("/proc/self/exe", ec);
+}
+#endif
 
 int CLI::printInit(const InitResult& r) {
     if (r.status == InitResult::ERROR) {
@@ -104,11 +115,8 @@ bool CLI::validateIgnoreInput(const std::string& pattern, std::string& err) {
         err = "pattern cannot be only whitespace";
         return false;
     }
-    std::string s = pattern;
-    for (char& c : s) {
-        if (c == '\\') c = '/';
-    }
-    if (s == ".." || s.rfind("../", 0) == 0 || (s.size() > 1 && s[1] == ':')) {
+    // Same rule the add/ignore modules use: no "..", no absolute paths, no drive letters.
+    if (isOutsideRepo(normalizePath(pattern))) {
         err = "pattern '" + pattern + "' escapes the repository";
         return false;
     }
@@ -151,7 +159,12 @@ int CLI::install() {
     std::error_code ec;
     fs::create_directories(destDir, ec);
     fs::path destFile = destDir / "minigit";
-    fs::copy_file(fs::current_path() / "minigit", destFile, fs::copy_options::overwrite_existing, ec);
+    fs::path selfP = selfExePath();
+    if (selfP.empty()) {
+        std::cout << "minigit install: failed to get current executable path\n";
+        return 1;
+    }
+    fs::copy_file(selfP, destFile, fs::copy_options::overwrite_existing, ec);
     if (ec) {
         std::cout << "minigit install: " << ec.message() << "\n";
         return 1;
@@ -196,6 +209,20 @@ int CLI::uninstall() {
 #endif
 }
 
+// Decides whether an already-installed copy at `installed` should be replaced
+// by the running binary `self`. Both paths exist when this is called.
+static bool installedCopyIsStale(const std::filesystem::path& self, const std::filesystem::path& installed) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    // A rebuilt binary is newer than the installed copy. CopyFileA keeps the source
+    // timestamp and copy_file stamps the copy "now", so after one refresh this is false.
+    auto selfTime = fs::last_write_time(self, ec);
+    if (ec) return false;  // can't tell -> never copy before a normal command
+    auto installedTime = fs::last_write_time(installed, ec);
+    if (ec) return false;
+    return selfTime > installedTime;
+}
+
 void CLI::autoInstall() {
 #if defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
     char selfPath[MAX_PATH];
@@ -221,7 +248,7 @@ void CLI::autoInstall() {
     }
     if (same) return; // Already running from the installed location
 
-    if (!fs::exists(destP, ec)) {
+    if (!fs::exists(destP, ec) || installedCopyIsStale(selfP, destP)) {
         fs::create_directories(destDir, ec);
         if (CopyFileA(selfPath, destP.string().c_str(), FALSE)) {
             std::cout << "[MiniGit] Auto-installed to your system PATH: " << destP.string() << "\n"
@@ -233,13 +260,14 @@ void CLI::autoInstall() {
     if (!home) return;
     namespace fs = std::filesystem;
     std::error_code ec;
-    fs::path selfP = fs::current_path() / "minigit";
+    fs::path selfP = selfExePath();
+    if (selfP.empty()) return;
     fs::path destDir = fs::path(home) / ".local" / "bin";
     fs::path destP = destDir / "minigit";
 
     if (fs::equivalent(selfP, destP, ec)) return;
 
-    if (!fs::exists(destP, ec)) {
+    if (!fs::exists(destP, ec) || installedCopyIsStale(selfP, destP)) {
         fs::create_directories(destDir, ec);
         fs::copy_file(selfP, destP, fs::copy_options::overwrite_existing, ec);
         if (!ec) {
@@ -252,16 +280,11 @@ void CLI::autoInstall() {
 
 int CLI::dispatch(int argc, char** argv, const std::string& root) {
     if (argc < 2) {
-        autoInstall();
         printUsage();
         return 1;
     }
 
     std::string cmd = argv[1];
-
-    if (cmd != "uninstall" && cmd != "--uninstall") {
-        autoInstall();
-    }
 
     if (cmd == "init") {
         InitResult r = initRepo(root);
@@ -296,6 +319,8 @@ int CLI::dispatch(int argc, char** argv, const std::string& root) {
                 return printAdd(r, path);
             }
         }
+        std::cout << "usage: minigit add <file|dir> | minigit add . | minigit add -v <file>\n";
+        return 1;
     } else if (cmd == "remove" || cmd == "rm") {
         if (argc < 3) {
             std::cout << "usage: minigit remove <file|dir|.>\n";
@@ -351,6 +376,8 @@ int CLI::dispatch(int argc, char** argv, const std::string& root) {
             IgnoreResult r = ignoreAdd(pattern, root);
             return printIgnore(r, pattern);
         }
+        std::cout << "usage: minigit ignore [<pattern> | -r <pattern> | -v <path>]\n";
+        return 1;
     } else if (cmd == "help" || cmd == "--help" || cmd == "-h") {
         printUsage();
         return 0;

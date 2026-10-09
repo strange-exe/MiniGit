@@ -72,9 +72,9 @@ Used for instant, deterministic pattern matching to block ignored files from sta
 - **Reversed Extension Trie**: Stores wildcard extension patterns (e.g. `*.log` is stored as reversed key `gol.`). When evaluating a filename, its reversed extension is queried in $O(E)$ time.
 - **Line Number Indexing**: Every terminal Trie node stores the 1-based line number of the matching rule from `.minigitignore`, allowing instant rule tracking during verification.
 
-### 2. Staging Index (Hash Set & Flat File)
+### 2. Staging Index (Ordered Set & Flat File)
 - Maintains staged file paths in `.minigit/index` (one path per line).
-- Guarantees $O(1)$ duplicate staging prevention and fast status checks.
+- Held in memory as `std::set` (a red-black tree): $O(\log n)$ duplicate staging prevention and status checks, and entries stay sorted so the index file has a stable order.
 
 ---
 
