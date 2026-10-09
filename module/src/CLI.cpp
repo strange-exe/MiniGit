@@ -111,6 +111,34 @@ int CLI::printCommit(const CommitResult& r) {
     return 0;
 }
 
+int CLI::printLog(const LogResult& r) {
+    switch (r.status) {
+        case LogResult::OK:
+            for (const LogEntry& e : r.entries) {
+                std::string shortId = e.commitId.size() >= 7 ? e.commitId.substr(0, 7) : e.commitId;
+                std::cout << "commit " << shortId << "\n";
+                if (!e.parentId.empty()) {
+                    std::string shortParent = e.parentId.size() >= 7 ? e.parentId.substr(0, 7) : e.parentId;
+                    std::cout << "parent  " << shortParent << "\n";
+                }
+                std::cout << "date    " << formatTimestamp(e.timestamp) << "\n"
+                          << "\n    " << e.message << "\n"
+                          << "    (" << e.fileCount << " file(s))\n\n";
+            }
+            return 0;
+        case LogResult::EMPTY:
+            std::cout << "No commits yet\n";
+            return 0;
+        case LogResult::NOT_A_REPO:
+            std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+            return 1;
+        default:
+            std::cout << "fatal: " << (r.errorMessage.empty() ? "could not read commit history" : r.errorMessage)
+                      << "\n";
+            return 1;
+    }
+}
+
 void CLI::printUsage() {
     std::cout << "usage: minigit <command> [<args>]\n\n"
               << "These are common MiniGit commands:\n"
@@ -125,6 +153,7 @@ void CLI::printUsage() {
               << "   commit \"<message>\"   Record staged changes to commit history\n"
               << "   commit undo          Undo the last commit / staging state\n"
               << "   commit redo          Redo the previously undone commit / staging state\n"
+              << "   log [--reverse]      Show commit history (newest first, or oldest first)\n"
               << "   install              Install MiniGit globally into system PATH\n"
               << "   uninstall            Uninstall MiniGit from system PATH\n";
 }
@@ -431,6 +460,11 @@ int CLI::dispatch(int argc, char** argv, const std::string& root) {
     } else if (cmd == "redo") {
         CommitResult r = redoCommit(root);
         return printCommit(r);
+    } else if (cmd == "log") {
+        if (argc == 2) return printLog(showLog(root, false));
+        if (argc == 3 && std::string(argv[2]) == "--reverse") return printLog(showLog(root, true));
+        std::cout << "usage: minigit log [--reverse]\n";
+        return 1;
     } else if (cmd == "help" || cmd == "--help" || cmd == "-h") {
         printUsage();
         return 0;
