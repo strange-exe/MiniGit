@@ -2,12 +2,6 @@ CXX      := g++
 CXXFLAGS := -std=c++14 -Wall -Wextra -Iinclude
 LDFLAGS  := -static
 
-ifeq ($(OS),Windows_NT)
-    RM := del /f /q
-else
-    RM := rm -f
-endif
-
 LIB_SRC  := src/Trie.cpp src/IgnoreManager.cpp src/StagingArea.cpp src/AddCommand.cpp src/InitCommand.cpp src/CommitHistory.cpp src/CommitCommand.cpp src/CLI.cpp
 
 all: minigit
@@ -33,12 +27,15 @@ test_cli: tests/test_cli.cpp $(LIB_SRC)
 test_commit: tests/test_commit.cpp $(LIB_SRC)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-test: test_trie test_add test_init test_cli test_commit
+TESTS := test_trie test_add test_init test_cli test_commit
+
+test: $(TESTS)
 	./test_trie
 	./test_add
 	./test_init
 	./test_cli
 	./test_commit
 
+# Recipes run under sh (Git Bash / MSYS on Windows), like the ./test_* lines above.
 clean:
-	$(RM) minigit.exe minigit_demo.exe test_trie.exe test_add.exe test_init.exe test_cli.exe test_commit.exe minigit minigit_demo test_trie test_add test_init test_cli test_commit 2>NUL || true
+	rm -f minigit minigit_demo $(TESTS) $(addsuffix .exe,minigit minigit_demo $(TESTS))

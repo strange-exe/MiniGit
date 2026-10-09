@@ -1,5 +1,7 @@
 #include "CommitCommand.h"
 
+#include <cstdint>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -138,6 +140,32 @@ static void setHEADCommitId(const std::string& root, const std::string& commitId
     }
 }
 
+// Commit metadata and .minigit/history are line-based, so a message must be one
+// line: each run of CR/LF becomes a single space ("line1\nline2" -> "line1 line2").
+static std::string singleLine(const std::string& msg) {
+    std::string out;
+    bool inBreak = false;
+    for (char c : msg) {
+        if (c == '\n' || c == '\r') {
+            if (!inBreak) out += ' ';
+            inBreak = true;
+        } else {
+            out += c;
+            inBreak = false;
+        }
+    }
+    return out;
+}
+
+// Name of the person committing: the OS login name, not a hardcoded team member.
+static std::string authorName() {
+    for (const char* var : {"MINIGIT_AUTHOR", "USERNAME", "USER"}) {
+        const char* v = std::getenv(var);
+        if (v && *v) return v;
+    }
+    return "unknown";
+}
+
 static std::string currentTimestampString() {
     std::time_t now = std::time(nullptr);
     return std::to_string(static_cast<long long>(now));
@@ -154,7 +182,7 @@ CommitResult commitRepo(const std::string& message, const std::string& root) {
         return r;
     }
 
-    std::string cleanMsg = trimString(message);
+    std::string cleanMsg = trimString(singleLine(message));
     if (cleanMsg.empty()) {
         r.status = CommitResult::INVALID_ARGUMENTS;
         r.errorMessage = "commit message cannot be empty";
@@ -201,7 +229,14 @@ CommitResult commitRepo(const std::string& message, const std::string& root) {
 
     // Create commit object directory: .minigit/objects/<commitId>/
     fs::path objDir = gitDir / "objects" / commitId;
+    auto writeFailed = [&](const std::string& what) {
+        fs::remove_all(objDir, ec);  // never leave a half-written commit behind
+        r.status = CommitResult::ERROR;
+        r.errorMessage = "could not write " + what;
+        return r;
+    };
     fs::create_directories(objDir, ec);
+    if (!fs::is_directory(objDir, ec)) return writeFailed("commit directory '" + objDir.string() + "'");
 
     // Save commit metadata file (.minigit/objects/<commitId>/metadata)
     fs::path metadataFile = objDir / "metadata";
@@ -209,13 +244,14 @@ CommitResult commitRepo(const std::string& message, const std::string& root) {
     metaOut << "commit " << commitId << "\n";
     metaOut << "parent " << (parentId.empty() ? "none" : parentId) << "\n";
     metaOut << "timestamp " << timestamp << "\n";
-    metaOut << "author Krish <krish@minigit>\n";
+    metaOut << "author " << authorName() << "\n";
     metaOut << "message " << cleanMsg << "\n";
     metaOut << "files " << stagedFiles.size() << "\n";
     for (const auto& f : stagedFiles) {
         metaOut << f << "\n";
     }
     metaOut.close();
+    if (!metaOut) return writeFailed("commit metadata");
 
     // Persist staged file content snapshots (.minigit/objects/<commitId>/snapshot/<path>)
     fs::path snapshotDir = objDir / "snapshot";
@@ -224,6 +260,8 @@ CommitResult commitRepo(const std::string& message, const std::string& root) {
         fs::create_directories(targetPath.parent_path(), ec);
         std::ofstream snapOut(targetPath.string(), std::ios::binary | std::ios::trunc);
         snapOut.write(item.second.data(), item.second.size());
+        snapOut.close();
+        if (!snapOut) return writeFailed("snapshot of '" + item.first + "'");
     }
 
     // Save state into CommitHistory using deque

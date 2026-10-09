@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "AddCommand.h"
 #include "CLI.h"
@@ -216,6 +217,57 @@ int main() {
 
         cleanupTestDir(cliTestDir);
         std::cout << "  [PASS] 17 & 18. CLI dispatch integration and existing behavior preserved\n";
+    }
+
+    // 19. Undo -> redo -> undo survives the history file round trip.
+    // redo() stores a snapshot with an empty message; the old loader skipped that
+    // blank line and left "REDO_COUNT 0" in the staging index.
+    {
+        std::string dir = "temp_test_undo_redo";
+        setupTestDir(dir);
+        initRepo(dir);
+        for (const char* name : {"a.txt", "b.txt"}) {
+            std::ofstream((fs::path(dir) / name).string()) << name << "\n";
+        }
+        addFile("a.txt", dir);
+        assert(commitRepo("A", dir).status == CommitResult::SUCCESS);
+        addFile("b.txt", dir);
+        assert(commitRepo("B", dir).status == CommitResult::SUCCESS);
+
+        assert(undoCommit(dir).status == CommitResult::SUCCESS);
+        assert(redoCommit(dir).status == CommitResult::SUCCESS);
+        assert(undoCommit(dir).status == CommitResult::SUCCESS);
+        std::vector<std::string> staged = StagingArea(dir).getStagedFiles();
+        assert(staged.size() == 1 && staged[0] == "b.txt");
+
+        // And the restored state can be committed again.
+        assert(commitRepo("B again", dir).status == CommitResult::SUCCESS);
+        cleanupTestDir(dir);
+        std::cout << "  [PASS] 19. Undo/redo/undo keeps the staged files intact\n";
+    }
+
+    // 20. Multi-line messages are stored on one line and keep the history readable
+    {
+        std::string dir = "temp_test_multiline";
+        setupTestDir(dir);
+        initRepo(dir);
+        std::ofstream((fs::path(dir) / "m.txt").string()) << "m\n";
+        addFile("m.txt", dir);
+        CommitResult r = commitRepo("line1\r\nline2\nline3", dir);
+        assert(r.status == CommitResult::SUCCESS);
+        assert(r.message == "line1 line2 line3");
+
+        {  // scoped: Windows cannot delete the folder while this file is open
+            std::ifstream meta((fs::path(dir) / ".minigit" / "objects" / r.commitId / "metadata").string());
+            std::string content((std::istreambuf_iterator<char>(meta)), std::istreambuf_iterator<char>());
+            assert(content.find("message line1 line2 line3\n") != std::string::npos);
+        }
+
+        assert(undoCommit(dir).status == CommitResult::SUCCESS);
+        std::vector<std::string> staged = StagingArea(dir).getStagedFiles();
+        assert(staged.size() == 1 && staged[0] == "m.txt");
+        cleanupTestDir(dir);
+        std::cout << "  [PASS] 20. Multi-line message flattened; history stays consistent\n";
     }
 
     cleanupTestDir(testDir);
