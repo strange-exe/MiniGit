@@ -1,7 +1,8 @@
 CXX      := g++
 CXXFLAGS := -std=c++14 -Wall -Wextra -Iinclude
 LDFLAGS  := -static
-LIB_SRC  := src/Trie.cpp src/IgnoreManager.cpp src/StagingArea.cpp src/AddCommand.cpp src/InitCommand.cpp src/CLI.cpp
+
+LIB_SRC  := src/Trie.cpp src/IgnoreManager.cpp src/StagingArea.cpp src/AddCommand.cpp src/InitCommand.cpp src/CommitHistory.cpp src/CommitCommand.cpp src/CLI.cpp
 
 all: minigit
 
@@ -14,7 +15,7 @@ minigit_demo: $(LIB_SRC) src/main_demo.cpp
 test_trie: tests/test_trie.cpp src/Trie.cpp
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-test_add: tests/test_add.cpp src/Trie.cpp src/IgnoreManager.cpp src/StagingArea.cpp src/AddCommand.cpp
+test_add: tests/test_add.cpp src/Trie.cpp src/IgnoreManager.cpp src/StagingArea.cpp src/AddCommand.cpp src/InitCommand.cpp
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 test_init: tests/test_init.cpp src/InitCommand.cpp
@@ -23,11 +24,18 @@ test_init: tests/test_init.cpp src/InitCommand.cpp
 test_cli: tests/test_cli.cpp $(LIB_SRC)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-test: test_trie test_add test_init test_cli
+test_commit: tests/test_commit.cpp $(LIB_SRC)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+TESTS := test_trie test_add test_init test_cli test_commit
+
+test: $(TESTS)
 	./test_trie
 	./test_add
 	./test_init
 	./test_cli
+	./test_commit
 
+# Recipes run under sh (Git Bash / MSYS on Windows), like the ./test_* lines above.
 clean:
-	rm -f minigit minigit.exe minigit_demo minigit_demo.exe test_trie test_trie.exe test_add test_add.exe test_init test_init.exe test_cli test_cli.exe
+	rm -f minigit minigit_demo $(TESTS) $(addsuffix .exe,minigit minigit_demo $(TESTS))
