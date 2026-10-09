@@ -6,6 +6,7 @@
 #include "CommitCommand.h"
 #include "IgnoreManager.h"
 #include "InitCommand.h"
+#include "LogCommand.h"
 
 namespace minigit {
 
@@ -23,6 +24,7 @@ public:
     //   commitRepo
     //   undoCommit
     //   redoCommit
+    //   showLog
     static int dispatch(int argc, char** argv, const std::string& root = ".");
 
     // Result and error mapping / output formatters
@@ -30,6 +32,7 @@ public:
     static int printAdd(const AddResult& r, const std::string& p);
     static int printIgnore(const IgnoreResult& r, const std::string& p);
     static int printCommit(const CommitResult& r);
+    static int printLog(const LogResult& r);
 
     // Helpers
     static void printUsage();
