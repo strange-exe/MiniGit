@@ -6,7 +6,9 @@
 /module/test_init*
 /module/test_cli*
 /module/test_commit*
+/module/test_log*
 /module/minigit_demo*
+/module/minigit_log_demo*
 !minigit.exe
 /module/minigit
 /module/minigit.exe
