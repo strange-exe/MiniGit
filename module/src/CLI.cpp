@@ -24,6 +24,12 @@ static std::filesystem::path selfExePath() {
 }
 #endif
 
+// Where an ignore rule comes from: a .minigitignore line, or the built-in
+// .minigit/ rule, which has no line in the file (line number -1).
+static std::string ruleSource(int line) {
+    return line > 0 ? "line " + std::to_string(line) : "built-in rule";
+}
+
 int CLI::printInit(const InitResult& r) {
     if (r.status == InitResult::ERROR) {
         std::cout << "fatal: " << r.message << "\n";
@@ -44,7 +50,7 @@ int CLI::printAdd(const AddResult& r, const std::string& p) {
             else std::cout << "'" << p << "' is already staged\n";
             return 0;
         case AddResult::IGNORED:
-            std::cout << "'" << p << "' is ignored by '" << r.message << "' (line " << r.line << ")\n";
+            std::cout << "'" << p << "' is ignored by '" << r.message << "' (" << ruleSource(r.line) << ")\n";
             return 0;
         case AddResult::NOT_FOUND:
             std::cout << "'" << p << "' does not exist\n";
@@ -82,7 +88,7 @@ int CLI::printIgnore(const IgnoreResult& r, const std::string& p) {
             std::cout << "\n";
             return 1;
         case IgnoreResult::IGNORED:
-            std::cout << "'" << p << "' is ignored by '" << r.matchedPattern << "' (line " << r.lineNumber << ")\n";
+            std::cout << "'" << p << "' is ignored by '" << r.matchedPattern << "' (" << ruleSource(r.lineNumber) << ")\n";
             return 0;
         case IgnoreResult::NOT_IGNORED:
             std::cout << "'" << p << "' is not ignored\n";
