@@ -146,6 +146,7 @@ function resetRepo() {
 // ---- working tree ----
 function isFile(p) { return Object.prototype.hasOwnProperty.call(repo.files, p); }
 function isDir(p) {
+    if (repo.initialized && /^\.minigit(\/|$)/.test(p)) return true;  // the repository folder itself
     const d = p.endsWith("/") ? p : p + "/";
     return Object.keys(repo.files).some((f) => f.startsWith(d));
 }
@@ -423,11 +424,14 @@ function showLog(reverse) {
 // ---------------------------------------------------------------------------
 // Output mapping (CLI::print*)
 // ---------------------------------------------------------------------------
+// The built-in .minigit/ rule has no line in .minigitignore (line -1)
+function ruleSource(line) { return line > 0 ? `line ${line}` : "built-in rule"; }
+
 function printAdd(r, p) {
     switch (r.status) {
         case "STAGED": return [0, r.message || `Staged '${p}'`];
         case "ALREADY_STAGED": return [0, r.message || `'${p}' is already staged`];
-        case "IGNORED": return [0, `'${p}' is ignored by '${r.message}' (line ${r.line})`];
+        case "IGNORED": return [0, `'${p}' is ignored by '${r.message}' (${ruleSource(r.line)})`];
         case "NOT_FOUND": return [1, `'${p}' does not exist`];
         case "UNSTAGED": return [0, r.count > 1 ? `Unstaged ${r.count} files` : `Unstaged '${p}'`];
         case "NOT_STAGED": return [0, `'${p}' is not staged`];
@@ -442,7 +446,7 @@ function printIgnore(r, p) {
         case "ALREADY_PRESENT": return [0, `'${p}' already ignored at line ${r.line}`];
         case "REMOVED": return [0, `Removed '${r.pattern}' (was line ${r.line})`];
         case "NOT_PRESENT": return [1, `'${p}' is not present in .minigitignore${r.message ? ` (${r.message})` : ""}`];
-        case "IGNORED": return [0, `'${p}' is ignored by '${r.pattern}' (line ${r.line})`];
+        case "IGNORED": return [0, `'${p}' is ignored by '${r.pattern}' (${ruleSource(r.line)})`];
         case "NOT_IGNORED": return [0, `'${p}' is not ignored`];
         default: return [1, `error: ${r.message}`];
     }
