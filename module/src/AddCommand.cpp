@@ -149,13 +149,19 @@ AddResult removeFile(const std::string& path, const std::string& root) {
     }
     std::string rel = normalizePath(path, root);
     if (rel.empty() || isOutsideRepo(rel)) return fail("path '" + path + "' is outside the repository");
-    if (!sa.unstage(rel)) {
+    int unstaged = sa.unstage(rel) ? 1 : 0;
+    if (unstaged == 0) {  // a directory: unstage every staged file below it
+        std::string prefix = rel.back() == '/' ? rel : rel + "/";
+        for (const std::string& f : sa.getStagedFiles())
+            if (f.compare(0, prefix.size(), prefix) == 0 && sa.unstage(f)) ++unstaged;
+    }
+    if (unstaged == 0) {
         r.status = AddResult::NOT_STAGED;
         return r;
     }
     if (!sa.save()) return fail("could not write .minigit/index");
     r.status = AddResult::UNSTAGED;  // file on disk is never touched
-    r.stagedCount = 1;
+    r.stagedCount = unstaged;
     return r;
 }
 

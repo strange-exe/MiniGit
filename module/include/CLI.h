@@ -12,19 +12,12 @@ namespace minigit {
 
 class CLI {
 public:
-    // Core dispatcher method calling:
-    //   initRepo
-    //   addFile
-    //   addAll
-    //   addVerify
-    //   removeFile
-    //   ignoreAdd
-    //   ignoreRemove
-    //   ignoreVerify
-    //   commitRepo
-    //   undoCommit
-    //   redoCommit
-    //   showLog
+    // Looks argv[1] up in the command table (src/CLI.cpp) and runs its handler:
+    //   init -> initRepo            add -> addFile / addAll / addVerify
+    //   remove -> removeFile        ignore -> ignoreAdd / ignoreRemove / ignoreVerify
+    //   commit, undo, redo -> commitRepo / undoCommit / redoCommit
+    //   log -> showLog              install, uninstall, help
+    // Wrong arguments print that command's usage and return 1.
     static int dispatch(int argc, char** argv, const std::string& root = ".");
 
     // Result and error mapping / output formatters
