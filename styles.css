@@ -21,7 +21,7 @@
     --danger: #f4a39a;
     --term-bg: #060b1c;
     --term-accent: #f0dfb1;
-    --glow: rgb(34 57 111 / 0.55);
+    --glow: rgb(34 57 111 / 0.5);
     --shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 24px 48px -28px rgb(2 4 14 / 0.9);
 
     --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
@@ -52,7 +52,7 @@
     --danger: #a3302a;
     --term-bg: #0d1c42;
     --term-accent: #f0dfb1;
-    --glow: rgb(240 223 177 / 0.55);
+    --glow: rgb(240 223 177 / 0.5);
     --shadow: 0 24px 48px -30px rgb(13 28 66 / 0.35);
     color-scheme: light;
 }
@@ -245,7 +245,7 @@ code, kbd, pre { font-family: var(--font-mono); }
 .section-head { max-width: 680px; margin-bottom: 40px; }
 .section-head h2 {
     margin: 0 0 12px;
-    font-size: clamp(1.75rem, 3vw, 2.4rem);
+    font-size: clamp(1.65rem, 2.8vw, 2.2rem);
     line-height: 1.15;
     letter-spacing: -0.03em;
     font-weight: 600;
@@ -287,7 +287,7 @@ code, kbd, pre { font-family: var(--font-mono); }
 .hero h1 {
     margin: 0;
     max-width: 22ch;
-    font-size: clamp(2.5rem, 5.4vw, 4.75rem);
+    font-size: clamp(2.3rem, 5vw, 4.35rem);
     line-height: 1.04;
     letter-spacing: -0.04em;
     font-weight: 600;
