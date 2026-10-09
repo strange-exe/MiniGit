@@ -30,7 +30,7 @@ MiniGit is a local, lightweight version-control tool developed in C++ to demonst
 - Initializing local repository metadata.
 - Tracking and staging files using an index.
 - Blocking untracked files through prefix-tree pattern matching (`.minigitignore`).
-- Querying staging and ignore status in $O(1)$ and $O(L)$ time.
+- Querying staging status in $O(\log n)$ (ordered set) and ignore status in $O(L)$ (Trie) time.
 
 ---
 
@@ -125,7 +125,7 @@ To solve PowerShell's restriction requiring `.\` for current-directory binaries:
 - **Header:** `include/StagingArea.h`
 - **Source:** `src/StagingArea.cpp`
 - **Disk Format:** Plain text file `.minigit/index` holding one path per line.
-- **In-Memory Cache:** `std::set<std::string>` enforces sorted order and provides $O(1)$ duplicate staging prevention.
+- **In-Memory Cache:** `std::set<std::string>` (red-black tree) enforces sorted order and provides $O(\log n)$ duplicate staging prevention.
 
 ---
 
