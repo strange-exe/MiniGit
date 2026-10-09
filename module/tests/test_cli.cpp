@@ -199,7 +199,13 @@ int main() {
     out = runDispatch({"minigit", "ignore"}, R, code);
     CHECK(out.find("--remove") == std::string::npos);
 
-    // 17. Clean up
+    // 17. The built-in .minigit/ rule has no line in .minigitignore: say so instead of "(line -1)"
+    out = runDispatch({"minigit", "ignore", "-v", ".minigit"}, R, code);
+    CHECK(code == 0 && out.find("is ignored by '.minigit/' (built-in rule)") != std::string::npos);
+    out = runDispatch({"minigit", "add", ".minigit"}, R, code);
+    CHECK(out.find("(built-in rule)") != std::string::npos && out.find("line -1") == std::string::npos);
+
+    // 18. Clean up
     fs::remove_all(tempRoot);
     std::cout << "test_cli: all tests passed\n";
     return 0;
