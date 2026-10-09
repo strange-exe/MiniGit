@@ -1,8 +1,11 @@
 #include "CLI.h"
 
+#include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <vector>
 
 #include "PathUtils.h"
 
@@ -139,23 +142,212 @@ int CLI::printLog(const LogResult& r) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Command table. Each row holds a command's name, aliases, usage forms and
+// handler, so `minigit help`, per-command usage and dispatch are generated from
+// one place and cannot drift apart. A handler returns an exit code, or kUsage
+// when its arguments are wrong (the dispatcher then prints that command's usage).
+// ---------------------------------------------------------------------------
+namespace {
+
+using Args = std::vector<std::string>;
+const int kUsage = -1;
+
+struct Form {
+    const char* syntax;  // e.g. "add -v <file>"
+    const char* description;
+};
+
+struct Command {
+    const char* name;
+    std::vector<std::string> aliases;
+    std::vector<Form> forms;
+    int (*run)(const Args& args, const std::string& root);
+};
+
+bool isFlag(const std::string& s, const char* shortFlag, const char* longFlag) {
+    return s == shortFlag || s == longFlag;
+}
+
+int runInit(const Args& a, const std::string& root) {
+    if (!a.empty()) return kUsage;
+    return CLI::printInit(initRepo(root));
+}
+
+int runAdd(const Args& a, const std::string& root) {
+    if (a.size() == 1) return CLI::printAdd(a[0] == "." ? addAll(root) : addFile(a[0], root), a[0]);
+    if (a.size() == 2 && isFlag(a[0], "-v", "--verify")) return CLI::printAdd(addVerify(a[1], root), a[1]);
+    return kUsage;
+}
+
+int runRemove(const Args& a, const std::string& root) {
+    if (a.size() != 1) return kUsage;
+    return CLI::printAdd(removeFile(a[0], root), a[0]);
+}
+
+int runIgnore(const Args& a, const std::string& root) {
+    if (a.empty()) {  // list the rules with their line numbers
+        IgnoreManager im(root);
+        const auto& lines = im.lines();
+        if (lines.empty()) std::cout << "No patterns in .minigitignore\n";
+        for (std::size_t i = 0; i < lines.size(); ++i) std::cout << (i + 1) << ": " << lines[i] << "\n";
+        return 0;
+    }
+    bool remove = isFlag(a[0], "-r", "--remove");
+    bool verify = isFlag(a[0], "-v", "--verify");
+    if ((remove || verify) && a.size() == 1) {
+        std::cout << "minigit ignore: option '" << a[0] << "' requires a pattern argument\n";
+        return 1;
+    }
+    if (a.size() != ((remove || verify) ? 2u : 1u)) return kUsage;
+
+    const std::string& pattern = a.back();
+    std::string err;
+    if (!CLI::validateIgnoreInput(pattern, err)) {
+        std::cout << "minigit ignore: " << err << "\n";
+        return 1;
+    }
+    IgnoreResult r = remove ? ignoreRemove(pattern, root) : verify ? ignoreVerify(pattern, root) : ignoreAdd(pattern, root);
+    return CLI::printIgnore(r, pattern);
+}
+
+int runCommit(const Args& a, const std::string& root) {
+    if (a.size() == 1 && a[0] == "undo") return CLI::printCommit(undoCommit(root));
+    if (a.size() == 1 && a[0] == "redo") return CLI::printCommit(redoCommit(root));
+    if (!a.empty() && isFlag(a[0], "-m", "--message")) {
+        if (a.size() == 1) {
+            std::cout << "fatal: option '" << a[0] << "' requires a message argument\n";
+            return 1;
+        }
+        return a.size() == 2 ? CLI::printCommit(commitRepo(a[1], root)) : kUsage;
+    }
+    return a.size() == 1 ? CLI::printCommit(commitRepo(a[0], root)) : kUsage;
+}
+
+int runUndo(const Args& a, const std::string& root) {
+    return a.empty() ? CLI::printCommit(undoCommit(root)) : kUsage;
+}
+
+int runRedo(const Args& a, const std::string& root) {
+    return a.empty() ? CLI::printCommit(redoCommit(root)) : kUsage;
+}
+
+int runLog(const Args& a, const std::string& root) {
+    if (a.empty()) return CLI::printLog(showLog(root, false));
+    if (a.size() == 1 && a[0] == "--reverse") return CLI::printLog(showLog(root, true));
+    return kUsage;
+}
+
+int runInstall(const Args& a, const std::string&) { return a.empty() ? CLI::install() : kUsage; }
+int runUninstall(const Args& a, const std::string&) { return a.empty() ? CLI::uninstall() : kUsage; }
+int runHelp(const Args& a, const std::string& root);
+
+const std::vector<Command>& commands() {
+    static const std::vector<Command> table = {
+        {"init", {}, {{"init", "Create an empty MiniGit repository or reinitialize an existing one"}}, runInit},
+        {"add", {}, {{"add <file|dir>", "Stage a file, or every non-ignored file in a directory"},
+                     {"add .", "Stage every non-ignored file in the repository"},
+                     {"add -v <file>", "Show whether a file is staged"}}, runAdd},
+        {"remove", {"rm"}, {{"remove <file|dir|.>", "Unstage files (files on disk are never touched)"}}, runRemove},
+        {"ignore", {}, {{"ignore", "List the rules in .minigitignore with line numbers"},
+                        {"ignore <pattern>", "Add a rule to .minigitignore"},
+                        {"ignore -r <pattern>", "Remove a rule from .minigitignore"},
+                        {"ignore -v <path>", "Show whether a path is ignored, and by which line"}}, runIgnore},
+        {"commit", {}, {{"commit \"<message>\"", "Record the staged files as a new commit"},
+                        {"commit -m \"<message>\"", "Same, with an explicit -m flag"},
+                        {"commit undo", "Undo the last commit and restore its staged files"},
+                        {"commit redo", "Redo the last undone commit"}}, runCommit},
+        {"undo", {}, {{"undo", "Shortcut for 'commit undo'"}}, runUndo},
+        {"redo", {}, {{"redo", "Shortcut for 'commit redo'"}}, runRedo},
+        {"log", {}, {{"log [--reverse]", "Show commit history, newest first (oldest first with --reverse)"}}, runLog},
+        {"install", {"--install"}, {{"install", "Copy MiniGit into a folder on your PATH"}}, runInstall},
+        {"uninstall", {"--uninstall"}, {{"uninstall", "Remove the installed copy from your PATH"}}, runUninstall},
+        {"help", {"--help", "-h"}, {{"help [<command>]", "Show this list, or the usage of one command"}}, runHelp},
+    };
+    return table;
+}
+
+const Command* findCommand(const std::string& name) {
+    for (const Command& c : commands()) {
+        if (name == c.name) return &c;
+        for (const std::string& alias : c.aliases)
+            if (name == alias) return &c;
+    }
+    return nullptr;
+}
+
+void printCommandUsage(const Command& c) {
+    std::cout << "usage:";
+    for (std::size_t i = 0; i < c.forms.size(); ++i) std::cout << (i ? " | " : " ") << "minigit " << c.forms[i].syntax;
+    std::cout << "\n";
+}
+
+void printForms(const Command& c, std::size_t width) {
+    for (const Form& f : c.forms) {
+        std::string syntax = f.syntax;
+        std::cout << "   " << syntax << std::string(width + 2 - syntax.size(), ' ') << f.description << "\n";
+    }
+}
+
+int runHelp(const Args& a, const std::string&) {
+    if (a.empty()) {
+        CLI::printUsage();
+        return 0;
+    }
+    if (a.size() != 1) return kUsage;
+    const Command* c = findCommand(a[0]);
+    if (!c) {
+        std::cout << "minigit help: '" << a[0] << "' is not a minigit command\n";
+        return 1;
+    }
+    printCommandUsage(*c);
+    std::cout << "\n";
+    std::size_t width = 0;
+    for (const Form& f : c->forms) width = std::max(width, std::strlen(f.syntax));
+    printForms(*c, width);
+    return 0;
+}
+
+// Levenshtein edit distance with two rolling rows: O(|a|*|b|) time, O(|b|) space.
+std::size_t editDistance(const std::string& a, const std::string& b) {
+    std::vector<std::size_t> prev(b.size() + 1), cur(b.size() + 1);
+    for (std::size_t j = 0; j <= b.size(); ++j) prev[j] = j;
+    for (std::size_t i = 1; i <= a.size(); ++i) {
+        cur[0] = i;
+        for (std::size_t j = 1; j <= b.size(); ++j) {
+            std::size_t substitute = prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1);
+            cur[j] = std::min({prev[j] + 1, cur[j - 1] + 1, substitute});
+        }
+        std::swap(prev, cur);
+    }
+    return prev[b.size()];
+}
+
+// Closest command for a typo ("comit" -> "commit"); "" when nothing is within 2 edits.
+std::string suggestCommand(const std::string& typo) {
+    std::string best;
+    std::size_t bestDistance = 3;
+    for (const Command& c : commands()) {
+        std::size_t d = editDistance(typo, c.name);
+        if (d < bestDistance) {
+            bestDistance = d;
+            best = c.name;
+        }
+    }
+    return best;
+}
+
+}  // namespace
+
 void CLI::printUsage() {
+    std::size_t width = 0;
+    for (const Command& c : commands())
+        for (const Form& f : c.forms) width = std::max(width, std::strlen(f.syntax));
+
     std::cout << "usage: minigit <command> [<args>]\n\n"
-              << "These are common MiniGit commands:\n"
-              << "   init                 Create an empty MiniGit repository or reinitialize an existing one\n"
-              << "   add <file|dir>       Add file contents to the staging area index\n"
-              << "   add .                Add all tracked/unignored repository files to index\n"
-              << "   add -v <file>        Verify if file is staged in index\n"
-              << "   remove <file|dir|.>  Remove files from the staging area index\n"
-              << "   ignore <pattern>     Add a pattern to .minigitignore\n"
-              << "   ignore -r <pattern>  Remove a pattern from .minigitignore\n"
-              << "   ignore -v <path>     Verify whether a path is ignored and show line number\n"
-              << "   commit \"<message>\"   Record staged changes to commit history\n"
-              << "   commit undo          Undo the last commit / staging state\n"
-              << "   commit redo          Redo the previously undone commit / staging state\n"
-              << "   log [--reverse]      Show commit history (newest first, or oldest first)\n"
-              << "   install              Install MiniGit globally into system PATH\n"
-              << "   uninstall            Uninstall MiniGit from system PATH\n";
+              << "These are common MiniGit commands:\n";
+    for (const Command& c : commands()) printForms(c, width);
+    std::cout << "\nSee 'minigit help <command>' for the usage of one command.\n";
 }
 
 bool CLI::validateIgnoreInput(const std::string& pattern, std::string& err) {
@@ -337,141 +529,26 @@ int CLI::dispatch(int argc, char** argv, const std::string& root) {
         return 1;
     }
 
-    std::string cmd = argv[1];
+    std::string name = argv[1];
+    Args args(argv + 2, argv + argc);
 
-    if (cmd == "init") {
-        InitResult r = initRepo(root);
-        return printInit(r);
-    }
-
-    if (cmd == "install" || cmd == "--install") {
-        return install();
-    }
-
-    if (cmd == "uninstall" || cmd == "--uninstall") {
-        return uninstall();
-    }
-
-    if (cmd == "add") {
-        if (argc < 3) {
-            std::cout << "usage: minigit add <file|dir> | minigit add . | minigit add -v <file>\n";
-            return 1;
-        }
-        if (argc == 4 && (std::string(argv[2]) == "-v" || std::string(argv[2]) == "--verify")) {
-            std::string path = argv[3];
-            AddResult r = addVerify(path, root);
-            return printAdd(r, path);
-        }
-        if (argc == 3) {
-            std::string path = argv[2];
-            if (path == ".") {
-                AddResult r = addAll(root);
-                return printAdd(r, path);
-            } else {
-                AddResult r = addFile(path, root);
-                return printAdd(r, path);
-            }
-        }
-        std::cout << "usage: minigit add <file|dir> | minigit add . | minigit add -v <file>\n";
+    const Command* c = findCommand(name);
+    if (!c) {
+        std::cout << "minigit: '" << name << "' is not a minigit command. See 'minigit --help'.\n";
+        std::string guess = suggestCommand(name);
+        if (!guess.empty()) std::cout << "\nThe most similar command is\n    " << guess << "\n";
         return 1;
-    } else if (cmd == "remove" || cmd == "rm") {
-        if (argc < 3) {
-            std::cout << "usage: minigit remove <file|dir|.>\n";
-            return 1;
-        }
-        std::string path = argv[2];
-        AddResult r = removeFile(path, root);
-        return printAdd(r, path);
-    } else if (cmd == "ignore") {
-        if (argc == 2) {
-            IgnoreManager im(root);
-            const auto& lines = im.lines();
-            if (lines.empty()) {
-                std::cout << "No patterns in .minigitignore\n";
-            } else {
-                for (std::size_t i = 0; i < lines.size(); ++i) {
-                    std::cout << (i + 1) << ": " << lines[i] << "\n";
-                }
-            }
-            return 0;
-        }
-        if (argc == 4 && (std::string(argv[2]) == "-r" || std::string(argv[2]) == "--remove")) {
-            std::string pattern = argv[3];
-            std::string err;
-            if (!validateIgnoreInput(pattern, err)) {
-                std::cout << "minigit ignore: " << err << "\n";
-                return 1;
-            }
-            IgnoreResult r = ignoreRemove(pattern, root);
-            return printIgnore(r, pattern);
-        }
-        if (argc == 4 && (std::string(argv[2]) == "-v" || std::string(argv[2]) == "--verify")) {
-            std::string pattern = argv[3];
-            std::string err;
-            if (!validateIgnoreInput(pattern, err)) {
-                std::cout << "minigit ignore: " << err << "\n";
-                return 1;
-            }
-            IgnoreResult r = ignoreVerify(pattern, root);
-            return printIgnore(r, pattern);
-        }
-        if (argc == 3) {
-            std::string pattern = argv[2];
-            if (pattern == "-r" || pattern == "-v") {
-                std::cout << "minigit ignore: option '" << pattern << "' requires a pattern argument\n";
-                return 1;
-            }
-            std::string err;
-            if (!validateIgnoreInput(pattern, err)) {
-                std::cout << "minigit ignore: " << err << "\n";
-                return 1;
-            }
-            IgnoreResult r = ignoreAdd(pattern, root);
-            return printIgnore(r, pattern);
-        }
-        std::cout << "usage: minigit ignore [<pattern> | -r <pattern> | -v <path>]\n";
-        return 1;
-    } else if (cmd == "commit") {
-        if (argc < 3) {
-            std::cout << "usage: minigit commit \"<message>\" | minigit commit -m \"<message>\" | minigit commit undo | minigit commit redo\n";
-            return 1;
-        }
-        std::string arg2 = argv[2];
-        if (arg2 == "undo") {
-            CommitResult r = undoCommit(root);
-            return printCommit(r);
-        } else if (arg2 == "redo") {
-            CommitResult r = redoCommit(root);
-            return printCommit(r);
-        } else if (arg2 == "-m" || arg2 == "--message") {
-            if (argc < 4) {
-                std::cout << "fatal: option '-m' requires a message argument\n";
-                return 1;
-            }
-            CommitResult r = commitRepo(argv[3], root);
-            return printCommit(r);
-        } else {
-            CommitResult r = commitRepo(arg2, root);
-            return printCommit(r);
-        }
-    } else if (cmd == "undo") {
-        CommitResult r = undoCommit(root);
-        return printCommit(r);
-    } else if (cmd == "redo") {
-        CommitResult r = redoCommit(root);
-        return printCommit(r);
-    } else if (cmd == "log") {
-        if (argc == 2) return printLog(showLog(root, false));
-        if (argc == 3 && std::string(argv[2]) == "--reverse") return printLog(showLog(root, true));
-        std::cout << "usage: minigit log [--reverse]\n";
-        return 1;
-    } else if (cmd == "help" || cmd == "--help" || cmd == "-h") {
-        printUsage();
+    }
+    if (args.size() == 1 && (args[0] == "--help" || args[0] == "-h")) {  // minigit <command> --help
+        printCommandUsage(*c);
         return 0;
     }
-
-    std::cout << "minigit: '" << cmd << "' is not a minigit command. See 'minigit --help'.\n";
-    return 1;
+    int rc = c->run(args, root);
+    if (rc == kUsage) {
+        printCommandUsage(*c);
+        return 1;
+    }
+    return rc;
 }
 
 int dispatch(int argc, char** argv, const std::string& root) {
