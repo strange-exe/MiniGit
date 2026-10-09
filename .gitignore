@@ -1,12 +1,14 @@
 # Build artifacts (keep main release executable minigit.exe)
 *.o
 *.obj
-test_trie*
-test_add*
-test_init*
-test_cli*
-minigit_demo*
+/module/test_trie*
+/module/test_add*
+/module/test_init*
+/module/test_cli*
+/module/minigit_demo*
 !minigit.exe
+/module/minigit
+/module/minigit.exe
 
 # Local test minigit directories
 .minigit/
