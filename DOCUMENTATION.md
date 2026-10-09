@@ -10,7 +10,7 @@
 
 ## Table of Contents
 1. [Introduction & Scope](#1-introduction--scope)
-2. [Responsibilities & Implementation](#2-responsibilities--implementation)
+2. [Abhinesh's Responsibilities & Implementation](#2-abhineshs-responsibilities--implementation)
    - [2.1 Repository Setup (`minigit init`)](#21-repository-setup-minigit-init)
    - [2.2 Command Dispatcher Architecture](#22-command-dispatcher-architecture)
    - [2.3 Status & Error Mapping (`IS_STAGED`)](#23-status--error-mapping-is_staged)
@@ -30,11 +30,12 @@ MiniGit is a local, lightweight version-control tool developed in C++ to demonst
 - Initializing local repository metadata.
 - Tracking and staging files using an index.
 - Blocking untracked files through prefix-tree pattern matching (`.minigitignore`).
-- Querying staging and ignore status in $O(1)$ and $O(L)$ time.
+- Querying staging status in $O(\log n)$ (ordered set) and ignore status in $O(L)$ (Trie) time.
+- Recording commits, undoing/redoing them (double-ended queue) and listing history (doubly linked list).
 
 ---
 
-## 2. Responsibilities & Implementation
+## 2. Abhinesh's Responsibilities & Implementation
 
 Abhinesh is responsible for **Repository Initialization**, the **CLI Interface**, the **Command Dispatcher**, **Ignore Validation**, and **Result Status Mapping**.
 
@@ -43,11 +44,13 @@ Abhinesh is responsible for **Repository Initialization**, the **CLI Interface**
 - **Source:** `src/InitCommand.cpp`
 - **Behavior:**
   1. Creates the `.minigit` root directory.
-  2. Creates `.minigit/objects/` (where commit trees and blob snapshots reside).
-  3. Initializes `.minigit/HEAD` pointing to default branch (`ref: refs/heads/main\n`).
-  4. Initializes `.minigit/index` (empty file tracking staged paths).
-  5. Initializes empty `.minigitignore` at the repository root if not present.
-  6. Idempotent: If `.minigit` already exists, reports `Reinitialized existing MiniGit repository` without corrupting user data.
+  2. Creates `.minigit/objects/` (where commit snapshots and metadata reside).
+  3. Creates `.minigit/refs/heads/`, the folder for the branch file that `HEAD` points to.
+  4. Initializes `.minigit/HEAD` pointing to default branch (`ref: refs/heads/main\n`).
+  5. Initializes `.minigit/index` (empty file tracking staged paths).
+  6. Initializes empty `.minigitignore` at the repository root if not present.
+  7. Idempotent: If `.minigit` already exists, reports `Reinitialized existing MiniGit repository`. Files are only written when missing (`ensureFile`), so the index, `HEAD` and ignore rules are never overwritten.
+  8. Every directory and file creation is checked. For example, a regular file named `.minigit` makes init fail with `fatal: cannot create directory ...` instead of reporting success.
 
 ### 2.2 Command Dispatcher Architecture
 - **Header:** `include/CLI.h`
@@ -60,23 +63,35 @@ The dispatcher acts as the central router between terminal inputs and core engin
 [Terminal Input: argv]
          │
          ▼
- ┌─────────────────┐
- │ CLI::dispatch() │
- └────────┬────────┘
-          ├──────────────► initRepo()       ──► InitResult
-          ├──────────────► addFile()         ──► AddResult
-          ├──────────────► addAll()          ──► AddResult
-          ├──────────────► addVerify()       ──► AddResult (IS_STAGED)
-          ├──────────────► removeFile()      ──► AddResult
-          ├──────────────► ignoreAdd()       ──► IgnoreResult
-          ├──────────────► ignoreRemove()    ──► IgnoreResult
-          ├──────────────► ignoreVerify()    ──► IgnoreResult
-          └──────────────► install()         ──► Auto/Manual Setup
+ ┌─────────────────┐   findCommand(argv[1])   ┌──────────────────────────────┐
+ │ CLI::dispatch() │ ───────────────────────► │ command table (one row each) │
+ └────────┬────────┘                          │ name · aliases · forms · run │
+          │                                   └──────────────────────────────┘
+          ├── init ─────────────► initRepo()                      ──► InitResult
+          ├── add ──────────────► addFile() / addAll() / addVerify() ─► AddResult (IS_STAGED)
+          ├── remove, rm ───────► removeFile()                    ──► AddResult
+          ├── ignore ───────────► ignoreAdd() / ignoreRemove() / ignoreVerify() ─► IgnoreResult
+          ├── commit, undo, redo ► commitRepo() / undoCommit() / redoCommit() ─► CommitResult
+          ├── log ──────────────► showLog()                       ──► LogResult
+          └── install, uninstall, help
+```
+
+**Why a table instead of an `if`/`else` chain?** Each command is one row holding its name, aliases, usage forms and handler function. Everything users see is generated from those rows: the `minigit help` list, `minigit help <command>`, `minigit <command> --help`, and the usage printed when arguments are wrong. Adding a command means adding one row, and the help text cannot go out of date. (Before, the usage strings were copied by hand into several places and had already drifted, e.g. help advertised `remove <dir>`, which did nothing.)
+
+**Argument checking:** a handler returns an exit code, or `kUsage` when its arguments do not match any of its forms. The dispatcher then prints that command's usage and exits with 1. Extra arguments are therefore rejected rather than silently ignored (`minigit remove a.txt b.txt`, `minigit commit "msg" extra`).
+
+**Typo suggestions:** for an unknown command, the dispatcher computes the Levenshtein edit distance (dynamic programming with two rolling rows, $O(|a| \cdot |b|)$ time, $O(|b|)$ space) to every command name and suggests the closest one within 2 edits:
+```
+$ minigit comit
+minigit: 'comit' is not a minigit command. See 'minigit --help'.
+
+The most similar command is
+    commit
 ```
 
 ### 2.3 Status & Error Mapping (`IS_STAGED`)
 The CLI maintains pure separation between business logic and console presentation:
-- Core functions return structured result objects (`AddResult`, `IgnoreResult`, `InitResult`).
+- Core functions return structured result objects (`InitResult`, `AddResult`, `IgnoreResult`, `CommitResult`, `LogResult`) and never print.
 - The CLI formats user messages and maps exit codes (0 for success, 1 for errors).
 - **New `IS_STAGED` Status Case:**
   When checking staging status (`minigit add -v <file>`), if the path is found in `.minigit/index`, the status returns `AddResult::IS_STAGED`:
@@ -88,8 +103,11 @@ The CLI maintains pure separation between business logic and console presentatio
 
 ### 2.4 `.minigitignore` CLI & Validation
 The ignore interface handles input sanitation before updating rules:
-- Rejects empty, whitespace-only, or illegal traversal patterns (`../`).
+- Rejects empty or whitespace-only patterns, and any pattern outside the repository: `..`, `a/../../x`, absolute paths and drive letters. This reuses the same `isOutsideRepo(normalizePath(...))` check as the add and ignore modules, so the rule lives in one place.
+- `-r`/`--remove` or `-v`/`--verify` without a pattern is an error, never saved as a rule.
+- Patterns reach MiniGit exactly as typed: the MinGW runtime's wildcard expansion is turned off (`_CRT_glob = 0` in `main.cpp`), so `minigit ignore *.log` stores `*.log`, not the names of the `.log` files in the current folder.
 - Dispatches:
+  - `minigit ignore`: Lists the rules with their line numbers.
   - `minigit ignore <pattern>`: Validates input, appends to `.minigitignore`, and updates the Trie.
   - `minigit ignore -r <pattern>`: Removes rule from file and Trie; outputs `"'<pattern>' is not present in .minigitignore"` if not ignored.
   - `minigit ignore -v <path>`: Returns whether the path is ignored and prints the **exact line number** in `.minigitignore`.
@@ -98,6 +116,9 @@ The ignore interface handles input sanitation before updating rules:
 To solve PowerShell's restriction requiring `.\` for current-directory binaries:
 - On first execution, `minigit.exe` automatically copies itself to `%LOCALAPPDATA%\Microsoft\WindowsApps\minigit.exe` (or `~/.local/bin/minigit` on Unix).
 - Because `WindowsApps` is in every Windows 10/11 user's `PATH` by default, `minigit` becomes runnable globally from any folder or terminal window without administrator privileges.
+- **Refresh:** when a newer build is run (its modification time is later than the installed copy's), the installed copy is replaced. Otherwise a rebuilt `minigit.exe` would never reach the global `minigit` command.
+- **Where it runs:** self-install is called from `main()`, not from `CLI::dispatch()`. The test programs call `dispatch()` directly, so they can never install themselves as `minigit`.
+- On Linux/macOS the running binary is located through `/proc/self/exe`, not the current working directory.
 
 ---
 
@@ -125,7 +146,7 @@ To solve PowerShell's restriction requiring `.\` for current-directory binaries:
 - **Header:** `include/StagingArea.h`
 - **Source:** `src/StagingArea.cpp`
 - **Disk Format:** Plain text file `.minigit/index` holding one path per line.
-- **In-Memory Cache:** `std::set<std::string>` enforces sorted order and provides $O(1)$ duplicate staging prevention.
+- **In-Memory Cache:** `std::set<std::string>` (red-black tree) enforces sorted order and provides $O(\log n)$ duplicate staging prevention.
 
 ---
 
@@ -201,6 +222,22 @@ Removed '*.log' (was line 1)
 'non_existent.txt' is not present in .minigitignore
 ```
 
+### 6. Help
+```powershell
+minigit help              # every command
+minigit help ignore       # one command
+minigit add --help        # same, from the command itself
+```
+**Output (`minigit help ignore`):**
+```
+usage: minigit ignore | minigit ignore <pattern> | minigit ignore -r <pattern> | minigit ignore -v <path>
+
+   ignore               List the rules in .minigitignore with line numbers
+   ignore <pattern>     Add a rule to .minigitignore
+   ignore -r <pattern>  Remove a rule from .minigitignore
+   ignore -v <path>     Show whether a path is ignored, and by which line
+```
+
 ---
 
 ## 5. Compilation, Portability & Testing
@@ -218,4 +255,7 @@ make test
 - `test_trie`: Verifies Trie prefix search, reversed extension matching, and node pruning.
 - `test_add`: Verifies staging, duplicate prevention, and `.minigitignore` enforcement.
 - `test_init`: Verifies repository initialization, directory structure, and `HEAD` metadata.
-- `test_cli`: Verifies argument parsing, dispatcher calls, and the `IS_STAGED` print case.
+- `test_cli`: Verifies argument parsing, dispatcher calls, generated help, typo suggestions, rejected extra arguments, and the `IS_STAGED` print case.
+- `test_commit`: Verifies commits, snapshots, undo/redo (including the undo → redo → undo round trip) and multi-line messages.
+- `test_commitlog`: Verifies the doubly linked list on its own.
+- `test_log`: Verifies `log` / `log --reverse` over real commits and through the CLI.
