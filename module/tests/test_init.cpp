@@ -27,6 +27,7 @@ int main() {
     CHECK(r1.status == InitResult::INITIALIZED);
     CHECK(fs::is_directory(tempRoot / ".minigit"));
     CHECK(fs::is_directory(tempRoot / ".minigit" / "objects"));
+    CHECK(fs::is_directory(tempRoot / ".minigit" / "refs" / "heads"));
     CHECK(fs::exists(tempRoot / ".minigit" / "HEAD"));
     CHECK(fs::exists(tempRoot / ".minigit" / "index"));
     CHECK(fs::exists(tempRoot / ".minigitignore"));
@@ -39,9 +40,30 @@ int main() {
         CHECK(headLine == "ref: refs/heads/main");
     }
 
-    // 2. Re-initialization
+    // 2. Re-initialization keeps existing data
+    {
+        std::ofstream((tempRoot / ".minigit" / "index").string()) << "kept.txt\n";
+        std::ofstream((tempRoot / ".minigitignore").string()) << "*.log\n";
+    }
     InitResult r2 = initRepo(R);
     CHECK(r2.status == InitResult::REINITIALIZED);
+    {
+        std::ifstream idx((tempRoot / ".minigit" / "index").string());
+        std::string line;
+        std::getline(idx, line);
+        CHECK(line == "kept.txt");
+        std::ifstream ig((tempRoot / ".minigitignore").string());
+        std::getline(ig, line);
+        CHECK(line == "*.log");
+    }
+
+    // 3. A file where the repository folder should be is reported, not ignored
+    fs::path blocked = tempRoot / "blocked";
+    fs::create_directories(blocked);
+    std::ofstream((blocked / ".minigit").string()) << "not a directory";
+    InitResult r3 = initRepo(blocked.string());
+    CHECK(r3.status == InitResult::ERROR);
+    CHECK(r3.message.find("cannot create directory") != std::string::npos);
 
     // Clean up
     fs::remove_all(tempRoot);
