@@ -164,6 +164,7 @@ MiniGit includes **built-in zero-config self-installation**:
 ```
 MiniGit-CLI/
 ├── .gitignore               # Ignores build artifacts, temporary test files, and local repo state
+├── LICENSE                  # MIT License
 ├── Makefile                 # Top-level build orchestration
 ├── README.md                # Project documentation
 ├── Reports/                 # Phase evaluation documentation
@@ -209,3 +210,9 @@ MiniGit-CLI/
         ├── test_log.cpp
         └── test_trie.cpp
 ```
+
+---
+
+## 📄 License
+
+MiniGit is released under the [MIT License](LICENSE).
