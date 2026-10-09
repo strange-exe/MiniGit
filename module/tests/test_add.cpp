@@ -94,6 +94,14 @@ int main() {
     CHECK(removeFile("main.cpp", R).status == AddResult::NOT_STAGED);
     CHECK(addFile("main.cpp", R).status == AddResult::STAGED);
 
+    // ---- remove <dir> unstages everything below it, and only that ----
+    CHECK(removeFile("build", R).status == AddResult::NOT_STAGED);  // must not match "buildings/"
+    CHECK(StagingArea(R).isStaged("buildings/a.cpp"));
+    a = removeFile("src/", R);
+    CHECK(a.status == AddResult::UNSTAGED && a.stagedCount == 1);
+    CHECK(!StagingArea(R).isStaged("src/a.cpp") && StagingArea(R).isStaged("main.cpp"));
+    CHECK(addFile("src", R).status == AddResult::STAGED);
+
     // ---- ignore remove ----
     r = ignoreRemove("build/x.o", R);
     CHECK(r.status == IgnoreResult::NOT_PRESENT && r.matchedPattern == "build/" && !r.message.empty());

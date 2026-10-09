@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <utility>
 
 #include "PathUtils.h"
 
@@ -9,48 +10,52 @@ namespace fs = std::filesystem;
 
 namespace minigit {
 
+// Creates `dir` (and parents) unless it already exists as a directory.
+static bool ensureDirectory(const fs::path& dir) {
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    return fs::is_directory(dir, ec);
+}
+
+// Writes `content` to `file` only if the file does not exist yet, so
+// re-running init never overwrites HEAD, the index or the user's ignore rules.
+static bool ensureFile(const fs::path& file, const std::string& content) {
+    std::error_code ec;
+    if (fs::exists(file, ec)) return true;
+    std::ofstream out(file.string());
+    out << content;
+    out.close();
+    return static_cast<bool>(out);
+}
+
 InitResult initRepo(const std::string& root) {
     InitResult r;
     std::error_code ec;
     fs::path rootPath = fs::weakly_canonical(fs::path(root), ec);
     fs::path gitDir = rootPath / ".minigit";
-    fs::path objectsDir = gitDir / "objects";
-    fs::path headFile = gitDir / "HEAD";
-    fs::path indexFile = gitDir / "index";
 
     bool alreadyExists = fs::is_directory(gitDir, ec);
 
-    if (!fs::create_directories(objectsDir, ec) && !fs::is_directory(objectsDir, ec)) {
-        r.status = InitResult::ERROR;
-        r.message = "cannot create directory '" + objectsDir.string() + "'";
-        return r;
-    }
-
-    // Initialize HEAD if it does not exist
-    if (!fs::exists(headFile, ec)) {
-        std::ofstream head(headFile.string());
-        if (!head) {
+    // objects/ holds commit snapshots; refs/heads/ holds the branch file HEAD points to.
+    for (const fs::path& dir : {gitDir / "objects", gitDir / "refs" / "heads"}) {
+        if (!ensureDirectory(dir)) {
             r.status = InitResult::ERROR;
-            r.message = "cannot create file '" + headFile.string() + "'";
-            return r;
-        }
-        head << "ref: refs/heads/main\n";
-    }
-
-    // Initialize index if it does not exist
-    if (!fs::exists(indexFile, ec)) {
-        std::ofstream index(indexFile.string());
-        if (!index) {
-            r.status = InitResult::ERROR;
-            r.message = "cannot create file '" + indexFile.string() + "'";
+            r.message = "cannot create directory '" + dir.string() + "'";
             return r;
         }
     }
 
-    // Initialize .minigitignore at repo root if it does not exist
-    fs::path ignoreFile = rootPath / ".minigitignore";
-    if (!fs::exists(ignoreFile, ec)) {
-        std::ofstream ig(ignoreFile.string());
+    const std::pair<fs::path, std::string> files[] = {
+        {gitDir / "HEAD", "ref: refs/heads/main\n"},
+        {gitDir / "index", ""},
+        {rootPath / ".minigitignore", ""},
+    };
+    for (const auto& f : files) {
+        if (!ensureFile(f.first, f.second)) {
+            r.status = InitResult::ERROR;
+            r.message = "cannot create file '" + f.first.string() + "'";
+            return r;
+        }
     }
 
     r.path = gitDir.string();
