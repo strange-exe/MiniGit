@@ -209,21 +209,52 @@ redo  [ ]            cleared by a new commit</pre>
 
         <!-- Architecture -->
         <section id="architecture" class="section" aria-labelledby="arch-title">
-            <div class="container layers">
-                <div class="layers-intro reveal">
-                    <div class="section-head">
-                        <h2 id="arch-title">Five layers, one direction.</h2>
-                    </div>
-                    <p>A command enters at the top. The dispatcher finds it in the command table and calls one module. Modules return result structs and never print; the CLI turns results into messages and exit codes.</p>
-                    <p>That split is what lets each module be tested on its own: seven test suites run with <code>make test</code>.</p>
+            <div class="container">
+                <div class="section-head reveal">
+                    <h2 id="arch-title">Four layers, one direction.</h2>
+                    <p>A command enters at the top, the dispatcher calls one module, and each module works through one data structure that loads and saves its own file. Modules return a result struct and never print; only the CLI writes output. Pick a command to trace its path.</p>
                 </div>
-                <ol class="layer-stack reveal">
-                    <li><strong>CLI and command table</strong><span>Looks up the command, checks its arguments, prints help, usage and typo suggestions.</span><code>CLI.cpp</code></li>
-                    <li><strong>Command modules</strong><span>init, add and remove, ignore, commit with undo and redo, log.</span><code>*Command.cpp</code></li>
-                    <li><strong>Ignore engine</strong><span>Parses <code>.minigitignore</code> into the two tries and reports which line matched.</span><code>IgnoreManager.cpp, Trie.cpp</code></li>
-                    <li><strong>Staging and history</strong><span>The ordered-set index, the undo and redo deques, and the linked commit log.</span><code>StagingArea, CommitHistory, CommitLog</code></li>
-                    <li><strong>Storage</strong><span><code>objects/&lt;id&gt;/</code> metadata and snapshots, <code>HEAD</code>, <code>refs/heads/main</code>, <code>index</code>, <code>history</code>.</span><code>.minigit/</code></li>
-                </ol>
+
+                <div class="arch reveal" id="arch">
+                    <div class="arch-bar">
+                        <div class="arch-picks" role="group" aria-label="Trace a command">
+                            <button type="button" class="arch-pick" data-trace="init" aria-pressed="false">init</button>
+                            <button type="button" class="arch-pick" data-trace="add" aria-pressed="false">add</button>
+                            <button type="button" class="arch-pick" data-trace="ignore" aria-pressed="false">ignore</button>
+                            <button type="button" class="arch-pick" data-trace="commit" aria-pressed="false">commit</button>
+                            <button type="button" class="arch-pick" data-trace="undo" aria-pressed="false">undo / redo</button>
+                            <button type="button" class="arch-pick" data-trace="log" aria-pressed="false">log</button>
+                        </div>
+                        <div class="arch-picks" role="group" aria-label="Trace a planned command">
+                            <button type="button" class="arch-pick planned" data-trace="checkout" aria-pressed="false">checkout</button>
+                            <button type="button" class="arch-pick planned" data-trace="branch" aria-pressed="false">branch</button>
+                        </div>
+                    </div>
+
+                    <div class="arch-scroll" id="archScroll">
+                        <svg id="archSvg" viewBox="0 0 1520 714" role="img" aria-labelledby="archSvgTitle archSvgDesc">
+                            <title id="archSvgTitle">MiniGit architecture</title>
+                            <desc id="archSvgDesc">Four layers: CLI, modules, data structures and storage. Each command module uses one data structure, and each data structure loads and saves its own file in .minigit/. Dashed boxes are planned: checkout and rollback in Phase 3, and branches as a future idea.</desc>
+                        </svg>
+                    </div>
+
+                    <ul class="arch-legend" aria-label="Legend">
+                        <li><span class="key key-call" aria-hidden="true"></span>calls</li>
+                        <li><span class="key key-file" aria-hidden="true"></span>reads or writes a file</li>
+                        <li><span class="key key-look" aria-hidden="true"></span>lookup</li>
+                        <li><span class="key key-plan" aria-hidden="true"></span>planned</li>
+                    </ul>
+
+                    <div class="arch-detail" id="archDetail" aria-live="polite">
+                        <div class="arch-steps">
+                            <p class="arch-kicker" id="archKicker">Overview</p>
+                            <h3 id="archTitle">Pick a command to trace it</h3>
+                            <p id="archLead">Choose a command above, or click a box in the diagram. Its path through the four layers lights up, and the steps below explain what happens at each box.</p>
+                            <ol id="archSteps"></ol>
+                        </div>
+                        <dl class="arch-facts" id="archFacts"></dl>
+                    </div>
+                </div>
             </div>
         </section>
 

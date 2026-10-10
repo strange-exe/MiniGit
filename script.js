@@ -977,6 +977,311 @@ function setupPdf() {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Interactive architecture diagram
+// Every node and edge lists the traces it belongs to ("core" = always part of a trace).
+// ---------------------------------------------------------------------------
+const ARCH_NODES = [
+    // layer, id, x, y, w, title, sub, mono flags [title, sub], traces, planned
+    ["cli", "input", 115, 68, 170, "minigit <cmd>", "terminal input", [1, 0], "core"],
+    ["cli", "disp", 510, 68, 380, "Dispatcher and command table", "find command, check arguments, help and typo hints", [0, 0], "core"],
+    ["cli", "out", 1190, 68, 220, "Output", "message and exit code", [0, 0], "core"],
+    ["mod", "m-init", 115, 238, 170, "init", "InitCommand", [1, 0], "init"],
+    ["mod", "m-add", 315, 238, 170, "add, remove", "AddCommand", [1, 0], "add"],
+    ["mod", "m-ignore", 515, 238, 170, "ignore", "IgnoreManager", [1, 0], "ignore"],
+    ["mod", "m-commit", 715, 238, 170, "commit, undo, redo", "CommitCommand", [1, 0], "commit undo"],
+    ["mod", "m-log", 915, 238, 170, "log", "LogCommand", [1, 0], "log"],
+    ["mod", "m-checkout", 1115, 238, 170, "checkout, rollback", "PHASE 3", [1, 0], "checkout", true],
+    ["mod", "m-branch", 1315, 238, 170, "branch, switch", "FUTURE", [1, 0], "branch", true],
+    ["ds", "d-set", 315, 398, 170, "Ordered set", "std::set", [0, 1], "add"],
+    ["ds", "d-trie", 515, 398, 170, "Dual trie", "paths, reversed extensions", [0, 0], "add ignore"],
+    ["ds", "d-deque", 715, 398, 170, "Two deques", "undo and redo states", [0, 0], "commit undo"],
+    ["ds", "d-list", 915, 398, 170, "Doubly linked list", "CommitLog", [0, 1], "log"],
+    ["ds", "d-stack", 1115, 398, 170, "Stack", "previous versions", [0, 0], "checkout", true],
+    ["ds", "d-graph", 1315, 398, 170, "Commit graph", "DAG of branches", [0, 0], "branch", true],
+    ["st", "s-head", 115, 568, 170, "HEAD", "refs/heads/main", [1, 1], "init commit undo log"],
+    ["st", "s-index", 315, 568, 170, "index", "staged paths", [1, 0], "init add commit"],
+    ["st", "s-ignore", 515, 568, 170, ".minigitignore", "one rule per line", [1, 0], "init add ignore"],
+    ["st", "s-history", 715, 568, 170, "history", "saved undo/redo states", [1, 0], "commit undo"],
+    ["st", "s-objects", 915, 568, 170, "objects/<id>/", "metadata, snapshot", [1, 0], "commit log checkout"],
+    ["st", "s-work", 1115, 568, 170, "Working files", "restored from snapshot", [0, 0], "checkout", true],
+    ["st", "s-refs", 1315, 568, 170, "refs/heads/*", "one ref per branch", [1, 0], "branch", true],
+];
+
+const ARCH_EDGES = [
+    // kind, path, traces, options: both = arrow at both ends, end = no arrow, label [x, y, text, anchor]
+    ["call", "M285 99 H507", "core"],
+    ["call", "M890 99 H1187", "core", { label: [1040, 88, "Result struct from the module", "middle"] }],
+    ["call", "M700 130 V178", "core", { end: false, label: [712, 168, "calls one module"] }],
+    ["call", "M200 178 H400", "init", { end: false }],
+    ["call", "M400 178 H600", "init add", { end: false }],
+    ["call", "M600 178 H700", "init add ignore", { end: false }],
+    ["call", "M700 178 H800", "commit undo log checkout branch", { end: false }],
+    ["call", "M800 178 H1000", "log checkout branch", { end: false }],
+    ["plan", "M1000 178 H1200", "checkout branch", { end: false }],
+    ["plan", "M1200 178 H1400", "branch", { end: false }],
+    ["call", "M200 178 V235", "init"],
+    ["call", "M400 178 V235", "add"],
+    ["call", "M600 178 V235", "ignore"],
+    ["call", "M800 178 V235", "commit undo"],
+    ["call", "M1000 178 V235", "log"],
+    ["plan", "M1200 178 V235", "checkout"],
+    ["plan", "M1400 178 V235", "branch"],
+    ["look", "M485 260 H505 V340 H560 V395", "add", { label: [420, 336, "is it ignored?"] }],
+    ["call", "M400 300 V395", "add"],
+    ["call", "M600 300 V395", "ignore"],
+    ["call", "M800 300 V395", "commit undo"],
+    ["call", "M1000 300 V395", "log"],
+    ["plan", "M1200 300 V395", "checkout"],
+    ["plan", "M1400 300 V395", "branch"],
+    ["file", "M200 300 V565", "init", { label: [210, 438, "creates .minigit/"] }],
+    ["file", "M400 463 V565", "add", { both: true, label: [408, 503, "load / save"] }],
+    ["file", "M600 463 V565", "add ignore", { both: true, label: [608, 503, "load / save"] }],
+    ["file", "M800 463 V565", "commit undo", { both: true, label: [808, 503, "load / save"] }],
+    ["file", "M885 280 H900 V599 H912", "commit", { label: [906, 342, "writes"] }],
+    ["file", "M1000 566 V463", "log", { label: [1008, 503, "reads commits"] }],
+    // trace-only: hidden in the overview, drawn under the storage row when their command is traced
+    ["file", "M115 270 H95 V648 H600 V633", "init", { only: true, label: [232, 669, "creates index and .minigitignore"] }],
+    ["file", "M400 648 V633", "init", { only: true }],
+    ["file", "M715 290 H700 V648 H200 V633", "commit", { only: true, label: [208, 669, "updates the ref"] }],
+    ["file", "M400 648 V633", "commit", { only: true, label: [408, 669, "reads, then clears"] }],
+    ["file", "M715 290 H700 V648 H200 V633", "undo", { only: true, label: [208, 669, "moves the ref"] }],
+    ["file", "M200 633 V648 H1092 V280 H1088", "log", { only: true, label: [208, 669, "reads HEAD first"] }],
+    ["plan", "M1200 463 V565", "checkout"],
+    ["plan", "M1400 463 V565", "branch"],
+    ["plan", "M1085 599 H1112", "checkout"],
+];
+
+const ARCH_TRACES = {
+    init: {
+        kicker: "Command", title: "minigit init", col: 200,
+        hot: ["m-init", "s-head"],
+        lead: "Creates the repository. No data structure is involved; it only lays out folders and files.",
+        steps: [
+            [["disp"], "The dispatcher finds <code>init</code> in the command table and rejects any extra arguments."],
+            [["m-init"], "<code>InitCommand</code> creates <code>.minigit/</code> with <code>objects/</code> and <code>refs/heads/</code>."],
+            [["s-head"], "<code>HEAD</code> is written as <code>ref: refs/heads/main</code>."],
+            [["s-index", "s-ignore"], "An empty <code>index</code> and <code>.minigitignore</code> are created."],
+            [["out"], "Run it again and it prints <em>Reinitialized</em>; existing files are never overwritten."],
+        ],
+        facts: [["Source", "InitCommand.cpp"], ["Data structure", "None, filesystem only"], ["Cost", "O(1)"], ["Writes", ".minigit/HEAD, index, .minigitignore"]],
+    },
+    add: {
+        kicker: "Command", title: "minigit add <file|.>", col: 400,
+        hot: ["m-add", "d-set", "s-index"],
+        lead: "Stages files. remove takes a file, a folder or . back out of the same set.",
+        steps: [
+            [["m-add"], "<code>AddCommand</code> normalises the path, so backslashes and <code>./</code> prefixes all match one form."],
+            [["d-trie", "s-ignore"], "It asks the ignore engine whether the path is ignored. If so, it reports the matching rule and its line."],
+            [["d-set"], "Otherwise the path goes into the <code>std::set</code>. A path that is already staged is not added twice."],
+            [["s-index"], "The set is saved to <code>.minigit/index</code>, one path per line, already in sorted order."],
+        ],
+        facts: [["Source", "AddCommand.cpp, StagingArea.cpp"], ["Data structure", "Ordered set (red-black tree)"], ["Cost", "O(log n) per file"], ["Writes", ".minigit/index"]],
+    },
+    ignore: {
+        kicker: "Command", title: "minigit ignore <pattern>", col: 600,
+        hot: ["m-ignore", "d-trie", "s-ignore"],
+        lead: "Adds, checks (-v) and removes (-r) ignore rules.",
+        steps: [
+            [["m-ignore"], "The pattern is checked first: no absolute paths, <code>..</code> or drive letters."],
+            [["s-ignore"], "<code>IgnoreManager</code> loads <code>.minigitignore</code> and numbers each rule by its line."],
+            [["d-trie"], "Files and folders go into the path trie. <code>*.ext</code> rules go into a second trie with the extension reversed, so a suffix match becomes a prefix walk."],
+            [["out"], "<code>ignore -v &lt;path&gt;</code> names the rule and line that matched; <code>ignore -r</code> removes a rule and rebuilds the tries."],
+        ],
+        facts: [["Source", "IgnoreManager.cpp, Trie.cpp"], ["Data structure", "Dual trie"], ["Cost", "O(L), L = path length"], ["Writes", ".minigitignore"]],
+    },
+    commit: {
+        kicker: "Command", title: "minigit commit \"<message>\"", col: 800,
+        hot: ["m-commit", "d-deque", "s-history", "s-objects"],
+        lead: "Saves a version of every staged file.",
+        steps: [
+            [["s-index"], "Reads the staged paths from <code>index</code>. With nothing staged, it stops: <em>nothing to commit</em>."],
+            [["s-objects"], "Hashes parent, time, message and file contents into a SHA-1 id, then writes <code>objects/&lt;id&gt;/metadata</code> and a snapshot of each file."],
+            [["d-deque"], "The previous state is pushed onto the undo deque and the redo deque is cleared. Past 20 entries, the oldest is dropped from the front."],
+            [["s-history"], "Both deques are saved to <code>.minigit/history</code>."],
+            [["s-head"], "<code>refs/heads/main</code> now points at the new commit, and the index is cleared."],
+        ],
+        facts: [["Source", "CommitCommand.cpp, CommitHistory.cpp"], ["Data structure", "Two deques, limit 20"], ["Cost", "O(1) push and pop at both ends"], ["Writes", "objects/<id>/, history, refs/heads/main"]],
+    },
+    undo: {
+        kicker: "Command", title: "minigit undo / redo", col: 800,
+        hot: ["m-commit", "d-deque", "s-history"],
+        lead: "Moves between saved states. Commit objects are never deleted.",
+        steps: [
+            [["s-history", "d-deque"], "The deques are loaded from <code>.minigit/history</code>. An empty undo deque prints <em>nothing to undo</em>."],
+            [["d-deque"], "undo pops the newest state from the undo deque and pushes the current one onto redo. redo does the reverse."],
+            [["s-head"], "The branch ref moves to the restored commit id."],
+            [["s-history"], "Both deques are saved again, so undo still works in the next session."],
+        ],
+        facts: [["Source", "CommitCommand.cpp, CommitHistory.cpp"], ["Data structure", "Two deques"], ["Cost", "O(1)"], ["Writes", "history, refs/heads/main"]],
+    },
+    log: {
+        kicker: "Command", title: "minigit log [--reverse]", col: 1000,
+        hot: ["m-log", "d-list", "s-objects"],
+        lead: "Prints the history with id, message and time.",
+        steps: [
+            [["s-head"], "Reads the commit id that <code>HEAD</code> points to."],
+            [["s-objects"], "Reads that commit's metadata and follows parent ids back to the first commit."],
+            [["d-list"], "Each commit becomes a node in <code>CommitLog</code>, a doubly linked list."],
+            [["out"], "<code>log</code> walks newest to oldest with <code>prev()</code>; <code>--reverse</code> walks oldest to newest with <code>next()</code>, with no copy or re-sort."],
+        ],
+        facts: [["Source", "LogCommand.cpp, CommitLog.cpp"], ["Data structure", "Doubly linked list"], ["Cost", "O(n) walk in either direction"], ["Writes", "Nothing, read only"]],
+    },
+    checkout: {
+        kicker: "Planned, Phase 3", title: "minigit checkout / rollback", col: 1200,
+        hot: ["m-checkout", "d-stack", "s-work"], planned: true,
+        lead: "Not built yet. This is the plan from the Phase 1 design report.",
+        steps: [
+            [["m-checkout"], "<code>checkout &lt;id&gt;</code> will restore the files of a chosen commit."],
+            [["d-stack"], "Before restoring, the current version is pushed onto a stack."],
+            [["s-objects", "s-work"], "Files are copied back from <code>objects/&lt;id&gt;/snapshot</code> into the working folder."],
+            [["d-stack"], "<code>rollback</code> pops the stack to undo the last checkout."],
+        ],
+        facts: [["Status", "Phase 3"], ["Data structure", "Stack (LIFO)"], ["Cost", "O(1) push and pop"], ["Writes", "Working files"]],
+    },
+    branch: {
+        kicker: "Future idea", title: "minigit branch / switch", col: 1400,
+        hot: ["m-branch", "d-graph", "s-refs"], planned: true,
+        lead: "Out of scope for this project: MiniGit keeps one linear history on main. Shown to explain why refs/heads/ already exists.",
+        steps: [
+            [["m-branch"], "<code>branch &lt;name&gt;</code> would create a new ref; <code>switch</code> would point HEAD at it."],
+            [["d-graph"], "History would become a graph: two commits can share a parent."],
+            [["s-refs"], "Each branch is one file under <code>refs/heads/</code>, like <code>main</code> today."],
+        ],
+        facts: [["Status", "Not planned"], ["Data structure", "Directed acyclic graph"], ["Cost", "O(V + E) to walk"], ["Writes", "refs/heads/<name>"]],
+    },
+};
+
+function setupArch() {
+    const svg = $("#archSvg");
+    if (!svg) return;
+    const NS = "http://www.w3.org/2000/svg";
+    const el = (tag, attrs, parent) => {
+        const e = document.createElementNS(NS, tag);
+        for (const k in attrs) e.setAttribute(k, attrs[k]);
+        if (parent) parent.appendChild(e);
+        return e;
+    };
+    const text = (parent, cls, x, y, s, anchor) => {
+        const t = el("text", { class: cls, x, y }, parent);
+        if (anchor) t.setAttribute("text-anchor", anchor);
+        t.textContent = s;
+        return t;
+    };
+
+    const defs = el("defs", {}, svg);
+    for (const k of ["call", "file", "look", "plan"]) {
+        const m = el("marker", { id: `ar-${k}`, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+        el("path", { d: "M0,0 L10,5 L0,10 z", class: `mk mk-${k}` }, m);
+    }
+
+    // bands
+    const bands = [["cli", 30, 128, "1  CLI"], ["mod", 200, 118, "2  MODULES"], ["ds", 360, 118, "3  STRUCTURES"], ["st", 520, 160, "4  STORAGE"]];
+    for (const [k, y, h, name] of bands) {
+        el("rect", { class: `band band-${k}`, x: 30, y, width: 1460, height: h, rx: 10 }, svg);
+        text(svg, `band-name bn-${k}`, 0, 0, name).setAttribute("transform", `translate(66 ${y + h / 2}) rotate(-90)`);
+    }
+    el("line", { class: "sep", x1: 1100, y1: 206, x2: 1100, y2: 674 }, svg);
+    text(svg, "ptag", 1300, 702, "PLANNED", "middle");
+
+    const parts = [];
+    const edges = el("g", {}, svg);
+    for (const [kind, d, t, o = {}] of ARCH_EDGES) {
+        const g = el("g", { class: o.only ? "ae only" : "ae", "data-t": t }, edges);
+        const p = el("path", { d, class: `edge e-${kind}` }, g);
+        if (o.end !== false) p.setAttribute("marker-end", `url(#ar-${kind})`);
+        if (o.both) p.setAttribute("marker-start", `url(#ar-${kind})`);
+        if (o.label) text(g, kind === "file" ? "elbl elbl-file" : "elbl", o.label[0], o.label[1], o.label[2], o.label[3]);
+        parts.push(g);
+    }
+
+    const byId = {};
+    for (const [layer, id, x, y, w, title, sub, mono, t, planned] of ARCH_NODES) {
+        const g = el("g", { class: `an an-${layer}${planned ? " planned" : ""}`, "data-id": id, "data-t": t }, svg);
+        el("rect", { class: "box", x, y, width: w, height: 62, rx: 8 }, g);
+        const cx = x + w / 2;
+        const tag = planned && layer === "mod";
+        text(g, `nt${mono[0] ? " mono" : ""}`, cx, y + (tag ? 24 : 28), title, "middle");
+        text(g, tag ? "ntag" : `ns${mono[1] ? " mono" : ""}`, cx, y + (tag ? 46 : 48), sub, "middle");
+        const trace = t.split(" ")[0];
+        if (trace !== "core") {
+            g.dataset.pick = trace;
+            g.addEventListener("click", () => select(current === trace ? null : trace));
+        }
+        byId[id] = g;
+        parts.push(g);
+    }
+    // module boxes are the keyboard entry point into the diagram
+    for (const id of ["m-init", "m-add", "m-ignore", "m-commit", "m-log", "m-checkout", "m-branch"]) {
+        const g = byId[id];
+        g.setAttribute("tabindex", "0");
+        g.setAttribute("role", "button");
+        g.setAttribute("aria-label", `Trace ${g.querySelector(".nt").textContent}`);
+        g.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); g.dispatchEvent(new MouseEvent("click")); }
+        });
+    }
+
+    const picks = document.querySelectorAll(".arch-pick");
+    picks.forEach((b) => b.addEventListener("click", () => select(current === b.dataset.trace ? null : b.dataset.trace)));
+
+    let current = null;
+    const steps = $("#archSteps");
+    const facts = $("#archFacts");
+    const overview = { kicker: $("#archKicker").textContent, title: $("#archTitle").textContent, lead: $("#archLead").textContent };
+
+    function focusNodes(ids) {
+        Object.values(byId).forEach((g) => g.classList.toggle("focus", ids.includes(g.dataset.id)));
+    }
+
+    function select(name) {
+        current = name;
+        const tr = name ? ARCH_TRACES[name] : null;
+        svg.classList.toggle("tracing", Boolean(tr));
+        for (const g of parts) {
+            const ts = g.dataset.t.split(" ");
+            g.classList.toggle("on", Boolean(tr) && (ts.includes("core") || ts.includes(name)));
+            g.classList.toggle("hot", Boolean(tr) && tr.hot.includes(g.dataset.id));
+        }
+        picks.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.trace === name)));
+        focusNodes([]);
+
+        $("#archKicker").textContent = tr ? tr.kicker : overview.kicker;
+        $("#archKicker").classList.toggle("planned", Boolean(tr && tr.planned));
+        $("#archTitle").textContent = tr ? tr.title : overview.title;
+        $("#archTitle").classList.toggle("mono", Boolean(tr));
+        $("#archLead").textContent = tr ? tr.lead : overview.lead;
+        steps.innerHTML = "";
+        facts.innerHTML = "";
+        if (!tr) return;
+        tr.steps.forEach(([ids, html]) => {
+            const li = document.createElement("li");
+            li.innerHTML = `<span>${html}</span>`;
+            li.tabIndex = 0;
+            const on = () => focusNodes(ids);
+            const off = () => focusNodes([]);
+            li.addEventListener("mouseenter", on);
+            li.addEventListener("mouseleave", off);
+            li.addEventListener("focus", on);
+            li.addEventListener("blur", off);
+            steps.appendChild(li);
+        });
+        for (const [k, v] of tr.facts) {
+            const dt = document.createElement("dt");
+            dt.textContent = k;
+            const dd = document.createElement("dd");
+            dd.textContent = v;
+            facts.append(dt, dd);
+        }
+        // on narrow screens the diagram scrolls sideways: bring the traced column into view
+        const box = $("#archScroll");
+        if (box.scrollWidth > box.clientWidth + 1) {
+            const left = (tr.col / 1520) * svg.clientWidth - box.clientWidth / 2;
+            box.scrollTo({ left: Math.max(0, left), behavior: reduceMotion.matches ? "auto" : "smooth" });
+        }
+    }
+}
+
 function toast(msg) {
     const t = $("#toast");
     t.textContent = msg;
@@ -996,6 +1301,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupMenu();
     setupObservers();
     setupPdf();
+    setupArch();
 
     const input = $("#cliInput");
     const history = [];
