@@ -835,6 +835,8 @@ code, kbd, pre { font-family: var(--font-mono); }
     padding: 10px 12px;
     border-bottom: 1px solid var(--line);
 }
+.pdf-pickers { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pdf-sep { width: 1px; height: 20px; background: var(--line-strong); }
 .pdf-tabs { display: flex; gap: 4px; }
 .pdf-tab {
     min-height: 36px;
@@ -846,8 +848,23 @@ code, kbd, pre { font-family: var(--font-mono); }
     font: 500 0.88rem var(--font-sans);
     cursor: pointer;
 }
-.pdf-tab[aria-selected="true"] { background: var(--raised); color: var(--text); }
+.pdf-tab[aria-pressed="true"] { background: var(--raised); color: var(--text); }
 .pdf-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.pdf-actions[hidden], .pdf-frame-wrap iframe[hidden] { display: none; }
+.pdf-empty {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 8px;
+    min-height: min(52vh, 480px);
+    padding: 32px 20px;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--r-control);
+    text-align: center;
+}
+.pdf-empty[hidden] { display: none; }
+.pdf-empty i { font-size: 2rem; color: var(--subtle); }
+.pdf-empty p { margin: 0 0 8px; color: var(--muted); font-size: 0.93rem; max-width: 46ch; }
 .pdf-meta { padding: 18px 20px 0; }
 .pdf-meta h3 { margin: 0 0 4px; font-size: 1.05rem; }
 .pdf-meta p { margin: 0; color: var(--muted); font-size: 0.93rem; max-width: 70ch; }

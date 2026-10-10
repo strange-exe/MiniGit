@@ -932,22 +932,44 @@ function setupObservers() {
 }
 
 function setupPdf() {
+    // One entry per phase and document; file: null means not published yet.
     const docs = {
-        report: { file: "Reports/report.pdf", title: "MiniGit Phase 1 design report", desc: "Problem, scope, architecture, data structure choices and the three-phase plan.", name: "MiniGit-Phase1-Report.pdf" },
-        ppt: { file: "Reports/ppt.pdf", title: "MiniGit Phase 1 presentation", desc: "The slide deck: motivation, layered design, command set and roadmap.", name: "MiniGit-Phase1-Presentation.pdf" },
+        1: {
+            report: { file: "Reports/report.pdf", title: "MiniGit Phase 1 design report", desc: "Problem, scope, architecture, data structure choices and the three-phase plan.", name: "MiniGit-Phase1-Report.pdf" },
+            slides: { file: "Reports/ppt.pdf", title: "MiniGit Phase 1 presentation", desc: "The slide deck: motivation, layered design, command set and roadmap.", name: "MiniGit-Phase1-Presentation.pdf" },
+        },
+        2: {
+            report: { file: "Reports/phase2.pdf", title: "MiniGit Phase 2 progress report", desc: "What was built: the four modules, the updated architecture, who did what, roadblocks and the remaining work.", name: "MiniGit-Phase2-Report.pdf" },
+            slides: { file: null, title: "MiniGit Phase 2 presentation", desc: "The slide deck for the Phase 2 review." },
+        },
     };
-    const tabs = document.querySelectorAll(".pdf-tab");
-    tabs.forEach((tab) => tab.addEventListener("click", () => {
-        const d = docs[tab.dataset.doc];
-        tabs.forEach((t) => { const on = t === tab; t.setAttribute("aria-selected", String(on)); t.tabIndex = on ? 0 : -1; });
-        $("#pdfFrame").src = `${d.file}#view=FitH`;
+    const state = { phase: "2", kind: "report" };
+    const phaseBtns = document.querySelectorAll(".pdf-tab[data-phase]");
+    const kindBtns = document.querySelectorAll(".pdf-tab[data-kind]");
+    const frame = $("#pdfFrame");
+
+    function show() {
+        const d = docs[state.phase][state.kind];
+        phaseBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.phase === state.phase)));
+        kindBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.kind === state.kind)));
         $("#pdfDocTitle").textContent = d.title;
         $("#pdfDocDesc").textContent = d.desc;
+        const ready = Boolean(d.file);
+        frame.hidden = !ready;
+        $("#pdfEmpty").hidden = ready;
+        $("#pdfActions").hidden = !ready;
+        if (!ready) return;
+        const src = `${d.file}#view=FitH`;
+        if (frame.getAttribute("src") !== src) frame.src = src;
         $("#pdfOpenTabBtn").href = d.file;
         const dl = $("#pdfDownloadBtn");
         dl.href = d.file;
         dl.download = d.name;
-    }));
+    }
+
+    phaseBtns.forEach((b) => b.addEventListener("click", () => { state.phase = b.dataset.phase; show(); }));
+    kindBtns.forEach((b) => b.addEventListener("click", () => { state.kind = b.dataset.kind; show(); }));
+    $("#pdfEmptyBack").addEventListener("click", () => { state.kind = "report"; show(); });
     const box = $("#pdfViewerContainer");
     $("#pdfFullscreenBtn").addEventListener("click", () => {
         if (document.fullscreenElement) document.exitFullscreen();

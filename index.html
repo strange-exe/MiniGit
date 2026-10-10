@@ -383,7 +383,7 @@ redo  [ ]            cleared by a new commit</pre>
                         </a>
                         <a class="dl-link reveal" href="#reports">
                             <i class="ph ph-file-pdf" aria-hidden="true"></i>
-                            <div><strong>Report and slides</strong><span>The Phase 1 design report and presentation.</span></div>
+                            <div><strong>Report and slides</strong><span>Phase reports and presentation slides.</span></div>
                             <i class="ph ph-arrow-down" aria-hidden="true"></i>
                         </a>
                         <a class="dl-link reveal" href="LICENSE" target="_blank" rel="noopener">
@@ -401,7 +401,7 @@ redo  [ ]            cleared by a new commit</pre>
             <div class="container">
                 <div class="section-head reveal">
                     <h2 id="road-title">Three phases, two done.</h2>
-                    <p>The plan from the Phase 1 design report, and where each part stands in the code today.</p>
+                    <p>The plan from the Phase 1 design report, and where each part stands after the Phase 2 review.</p>
                 </div>
                 <ol class="phases reveal">
                     <li class="done">
@@ -410,7 +410,7 @@ redo  [ ]            cleared by a new commit</pre>
                         <p>Scope, command set, <code>.minigit/</code> layout, class responsibilities and the choice of data structures.</p>
                     </li>
                     <li class="done">
-                        <span class="phase-status">Phase 2, implemented</span>
+                        <span class="phase-status">Phase 2, delivered</span>
                         <h3>Repository and commit module</h3>
                         <p><code>init</code>, <code>add</code>, <code>ignore</code>, <code>commit</code> and <code>log</code>, plus undo and redo on two deques and a table-driven CLI.</p>
                     </li>
@@ -512,28 +512,41 @@ redo  [ ]            cleared by a new commit</pre>
         <section id="reports" class="section" aria-labelledby="rep-title">
             <div class="container">
                 <div class="section-head reveal">
-                    <h2 id="rep-title">Report and slides.</h2>
-                    <p>The Phase 1 deliverables, served from the <code>Reports/</code> folder.</p>
+                    <h2 id="rep-title">Reports and slides.</h2>
+                    <p>The report and presentation for each phase, served from the <code>Reports/</code> folder.</p>
                 </div>
 
                 <div class="pdf reveal" id="pdfViewerContainer">
                     <div class="pdf-bar">
-                        <div class="pdf-tabs" role="tablist" aria-label="Documents">
-                            <button class="pdf-tab" role="tab" data-doc="report" aria-selected="true">Design report</button>
-                            <button class="pdf-tab" role="tab" data-doc="ppt" aria-selected="false" tabindex="-1">Presentation</button>
+                        <div class="pdf-pickers">
+                            <div class="pdf-tabs" role="group" aria-label="Phase">
+                                <button class="pdf-tab" type="button" data-phase="1" aria-pressed="false">Phase 1</button>
+                                <button class="pdf-tab" type="button" data-phase="2" aria-pressed="true">Phase 2</button>
+                            </div>
+                            <span class="pdf-sep" aria-hidden="true"></span>
+                            <div class="pdf-tabs" role="group" aria-label="Document">
+                                <button class="pdf-tab" type="button" data-kind="report" aria-pressed="true">Report</button>
+                                <button class="pdf-tab" type="button" data-kind="slides" aria-pressed="false">Slides</button>
+                            </div>
                         </div>
-                        <div class="pdf-actions">
-                            <a id="pdfOpenTabBtn" href="Reports/report.pdf" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><i class="ph ph-arrow-up-right" aria-hidden="true"></i> Open</a>
-                            <a id="pdfDownloadBtn" href="Reports/report.pdf" download="MiniGit-Phase1-Report.pdf" class="btn btn-secondary btn-sm"><i class="ph ph-download-simple" aria-hidden="true"></i> Save PDF</a>
+                        <div class="pdf-actions" id="pdfActions">
+                            <a id="pdfOpenTabBtn" href="Reports/phase2.pdf" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><i class="ph ph-arrow-up-right" aria-hidden="true"></i> Open</a>
+                            <a id="pdfDownloadBtn" href="Reports/phase2.pdf" download="MiniGit-Phase2-Report.pdf" class="btn btn-secondary btn-sm"><i class="ph ph-download-simple" aria-hidden="true"></i> Save PDF</a>
                             <button id="pdfFullscreenBtn" type="button" class="btn btn-secondary btn-sm"><i class="ph ph-arrows-out" aria-hidden="true"></i> Fullscreen</button>
                         </div>
                     </div>
-                    <div class="pdf-meta">
-                        <h3 id="pdfDocTitle">MiniGit Phase 1 design report</h3>
-                        <p id="pdfDocDesc">Problem, scope, architecture, data structure choices and the three-phase plan.</p>
+                    <div class="pdf-meta" aria-live="polite">
+                        <h3 id="pdfDocTitle">MiniGit Phase 2 progress report</h3>
+                        <p id="pdfDocDesc">What was built: the four modules, the updated architecture, who did what, roadblocks and the remaining work.</p>
                     </div>
                     <div class="pdf-frame-wrap">
-                        <iframe id="pdfFrame" src="Reports/report.pdf#view=FitH" title="MiniGit document viewer" loading="lazy"></iframe>
+                        <iframe id="pdfFrame" src="Reports/phase2.pdf#view=FitH" title="MiniGit document viewer" loading="lazy"></iframe>
+                        <div class="pdf-empty" id="pdfEmpty" hidden>
+                            <i class="ph ph-presentation" aria-hidden="true"></i>
+                            <strong>Not published yet</strong>
+                            <p>The Phase 2 slides will appear here after the Phase 2 presentation. The progress report is available now.</p>
+                            <button type="button" class="btn btn-secondary btn-sm" id="pdfEmptyBack">View the Phase 2 report</button>
+                        </div>
                     </div>
                 </div>
 
