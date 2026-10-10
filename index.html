@@ -217,7 +217,8 @@ redo  [ ]            cleared by a new commit</pre>
 
                 <div class="arch reveal" id="arch">
                     <div class="arch-bar">
-                        <div class="arch-picks" role="group" aria-label="Trace a command">
+                        <span class="arch-label" id="archLabel">Trace a command</span>
+                        <div class="arch-picks" role="group" aria-labelledby="archLabel">
                             <button type="button" class="arch-pick" data-trace="init" aria-pressed="false">init</button>
                             <button type="button" class="arch-pick" data-trace="add" aria-pressed="false">add</button>
                             <button type="button" class="arch-pick" data-trace="ignore" aria-pressed="false">ignore</button>
@@ -229,6 +230,8 @@ redo  [ ]            cleared by a new commit</pre>
                             <button type="button" class="arch-pick planned" data-trace="checkout" aria-pressed="false">checkout</button>
                             <button type="button" class="arch-pick planned" data-trace="branch" aria-pressed="false">branch</button>
                         </div>
+                        <button type="button" class="arch-pick arch-all" data-trace="" aria-pressed="false">Show all</button>
+                        <p class="arch-tour" id="archTour" hidden><span class="arch-tour-dot" aria-hidden="true"></span>Short tour playing. Click anywhere in the diagram to stop.</p>
                     </div>
 
                     <div class="arch-scroll" id="archScroll">
@@ -248,8 +251,8 @@ redo  [ ]            cleared by a new commit</pre>
                     <div class="arch-detail" id="archDetail" aria-live="polite">
                         <div class="arch-steps">
                             <p class="arch-kicker" id="archKicker">Overview</p>
-                            <h3 id="archTitle">Pick a command to trace it</h3>
-                            <p id="archLead">Choose a command above, or click a box in the diagram. Its path through the four layers lights up, and the steps below explain what happens at each box.</p>
+                            <h3 id="archTitle">Every module and file at once</h3>
+                            <p id="archLead">Choose a command above, or click a box in the diagram. Its path through the four layers lights up, and the steps explain what happens at each box.</p>
                             <ol id="archSteps"></ol>
                         </div>
                         <dl class="arch-facts" id="archFacts"></dl>
@@ -439,13 +442,21 @@ redo  [ ]            cleared by a new commit</pre>
                         <span class="phase-status">Phase 1, delivered</span>
                         <h3>Planning and design</h3>
                         <p>Scope, command set, <code>.minigit/</code> layout, class responsibilities and the choice of data structures.</p>
+                        <div class="phase-links">
+                            <a href="#reports" data-open-doc="1:report"><i class="ph ph-file-pdf" aria-hidden="true"></i>Design report</a>
+                            <a href="#reports" data-open-doc="1:slides"><i class="ph ph-presentation" aria-hidden="true"></i>Slides</a>
+                        </div>
                     </li>
                     <li class="done">
                         <span class="phase-status">Phase 2, delivered</span>
                         <h3>Repository and commit module</h3>
                         <p><code>init</code>, <code>add</code>, <code>ignore</code>, <code>commit</code> and <code>log</code>, plus undo and redo on two deques and a table-driven CLI.</p>
+                        <div class="phase-links">
+                            <a href="#reports" data-open-doc="2:report"><i class="ph ph-file-pdf" aria-hidden="true"></i>Progress report</a>
+                            <a href="#architecture"><i class="ph ph-tree-structure" aria-hidden="true"></i>Architecture</a>
+                        </div>
                     </li>
-                    <li>
+                    <li class="next">
                         <span class="phase-status">Phase 3, next</span>
                         <h3>Restore, test and document</h3>
                         <p><code>checkout</code> to restore a chosen version and <code>rollback</code> to undo that restore, with validation, error handling and final documentation.</p>

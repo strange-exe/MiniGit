@@ -970,6 +970,13 @@ function setupPdf() {
     phaseBtns.forEach((b) => b.addEventListener("click", () => { state.phase = b.dataset.phase; show(); }));
     kindBtns.forEach((b) => b.addEventListener("click", () => { state.kind = b.dataset.kind; show(); }));
     $("#pdfEmptyBack").addEventListener("click", () => { state.kind = "report"; show(); });
+    // links elsewhere on the page (roadmap) open a given phase and document: data-open-doc="2:report"
+    document.querySelectorAll("[data-open-doc]").forEach((a) => a.addEventListener("click", () => {
+        const [phase, kind] = a.dataset.openDoc.split(":");
+        state.phase = phase;
+        state.kind = kind;
+        show();
+    }))
     const box = $("#pdfViewerContainer");
     $("#pdfFullscreenBtn").addEventListener("click", () => {
         if (document.fullscreenElement) document.exitFullscreen();
@@ -1206,7 +1213,7 @@ function setupArch() {
         const trace = t.split(" ")[0];
         if (trace !== "core") {
             g.dataset.pick = trace;
-            g.addEventListener("click", () => select(current === trace ? null : trace));
+            g.addEventListener("click", () => select(trace));
         }
         byId[id] = g;
         parts.push(g);
@@ -1223,9 +1230,7 @@ function setupArch() {
     }
 
     const picks = document.querySelectorAll(".arch-pick");
-    picks.forEach((b) => b.addEventListener("click", () => select(current === b.dataset.trace ? null : b.dataset.trace)));
-
-    let current = null;
+    picks.forEach((b) => b.addEventListener("click", () => select(b.dataset.trace || null)));
     const steps = $("#archSteps");
     const facts = $("#archFacts");
     const overview = { kicker: $("#archKicker").textContent, title: $("#archTitle").textContent, lead: $("#archLead").textContent };
@@ -1235,7 +1240,6 @@ function setupArch() {
     }
 
     function select(name) {
-        current = name;
         const tr = name ? ARCH_TRACES[name] : null;
         svg.classList.toggle("tracing", Boolean(tr));
         for (const g of parts) {
@@ -1243,7 +1247,7 @@ function setupArch() {
             g.classList.toggle("on", Boolean(tr) && (ts.includes("core") || ts.includes(name)));
             g.classList.toggle("hot", Boolean(tr) && tr.hot.includes(g.dataset.id));
         }
-        picks.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.trace === name)));
+        picks.forEach((b) => b.setAttribute("aria-pressed", String((b.dataset.trace || null) === name)));
         focusNodes([]);
 
         $("#archKicker").textContent = tr ? tr.kicker : overview.kicker;
@@ -1279,6 +1283,52 @@ function setupArch() {
             const left = (tr.col / 1520) * svg.clientWidth - box.clientWidth / 2;
             box.scrollTo({ left: Math.max(0, left), behavior: reduceMotion.matches ? "auto" : "smooth" });
         }
+    }
+
+    // Open on a traced path: the faded diagram shows at a glance that it responds to input.
+    const HOME = "commit";
+    select(HOME);
+
+    // One-time tour the first time the diagram is in view. Any interaction stops it for good,
+    // and it never runs with reduced motion.
+    const TOUR = ["init", "add", "commit", "log"];
+    const TOUR_STEP_MS = 2500;
+    const arch = $("#arch");
+    const tourNote = $("#archTour");
+    let tourTimer = null;
+    let tourDone = reduceMotion.matches || !("IntersectionObserver" in window);
+
+    function stopTour(landOn) {
+        if (tourTimer === null) { tourDone = true; return; }
+        clearTimeout(tourTimer);
+        tourTimer = null;
+        tourDone = true;
+        tourNote.hidden = true;
+        if (landOn) select(landOn);
+    }
+    function runTour(i) {
+        if (i >= TOUR.length) { stopTour(HOME); return; }
+        select(TOUR[i]);
+        tourTimer = setTimeout(() => runTour(i + 1), TOUR_STEP_MS);
+    }
+    // capture phase, so the click that stops the tour still selects what was clicked
+    for (const type of ["pointerdown", "keydown", "focusin"]) {
+        arch.addEventListener(type, () => stopTour(null), { capture: true });
+    }
+    if (!tourDone) {
+        // Watch the diagram, not the whole card: the steps panel changes height on every
+        // trace, which would push the card's visible ratio up and down mid-tour.
+        const seen = new IntersectionObserver((entries) => {
+            const e = entries[0];
+            if (e.intersectionRatio >= 0.6 && !tourDone && tourTimer === null) {
+                tourNote.hidden = false;
+                runTour(0);
+            } else if (e.intersectionRatio === 0 && tourTimer !== null) {
+                stopTour(HOME);  // scrolled fully away mid-tour
+            }
+            if (tourDone) seen.disconnect();
+        }, { threshold: [0, 0.6] });
+        seen.observe($("#archScroll"));
     }
 }
 
