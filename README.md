@@ -20,6 +20,7 @@ Department of Computer Science & Engineering — Graphic Era (Deemed to be Unive
 This branch holds the project website: `index.html`, `styles.css` and `script.js`, with no build step. The C++ source, Makefiles and tests described below live on the `main` branch.
 
 - **Sandbox:** a browser port of the C++ modules. It runs the real commands on a small sample project and shows each data structure live: the commit list, the index set, both ignore tries, the undo/redo deques and the `.minigit/` folder. Its output matches the real `minigit.exe` message for message.
+- **Reports and slides:** each phase's report scrolls page by page and its deck plays one slide at a time (arrow keys, swipe, thumbnails, fullscreen). Pages are drawn with [pdf.js](https://github.com/mozilla/pdf.js) 6.4.299, self-hosted in `vendor/` under its Apache-2.0 licence and loaded only when the section is reached. To add a document, put the PDF in `Reports/` and add one entry to `docs` in `setupPdf()`.
 - **Downloads:** `minigit.exe`, `DOCUMENTATION.md` and the `Reports/` PDFs are served from this branch.
 
 Preview it locally from the repository root:
@@ -184,6 +185,7 @@ MiniGit-CLI/
 ├── README.md                # Project documentation
 ├── Reports/                 # Phase evaluation documentation
 │   ├── phase2.pdf           # Phase-II project progress report
+│   ├── phase2-ppt.pdf       # Phase-II presentation slides
 │   ├── ppt.pdf              # Phase-I presentation slides
 │   └── report.pdf           # Phase-I project proposal & architecture report
 └── module/                  # Core source code & unit tests

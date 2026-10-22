@@ -931,6 +931,426 @@ function setupObservers() {
     document.querySelectorAll(".reveal").forEach((el) => rev.observe(el));
 }
 
+// ---------------------------------------------------------------------------
+// Report and slide viewer
+// pdf.js is self-hosted in vendor/ (a worker must come from the page's own origin) and is only
+// downloaded when the Reports section comes near the screen. Reports scroll page by page;
+// slide decks show one slide at a time. Canvases draw the pages; a transparent text layer on top
+// keeps the text selectable, searchable with Ctrl+F and readable by screen readers.
+// ---------------------------------------------------------------------------
+const PDFJS_BASE = "vendor/pdfjs-6.4.299/";
+const MAX_CANVAS_PIXELS = 16777216;  // Safari's canvas area limit (4096 x 4096)
+const ZOOM_STEPS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 3];  // multiples of "fit width"
+let pdfjsLib = null;
+
+function loadPdfjs() {
+    if (!pdfjsLib) {
+        const base = new URL(PDFJS_BASE, document.baseURI);
+        pdfjsLib = import(new URL("pdf.min.mjs", base).href).then(async (lib) => {
+            lib.GlobalWorkerOptions.workerSrc = new URL("pdf.worker.min.mjs", base).href;
+            // One worker shared by every document. PDFWorker (unlike a raw workerPort) reports a
+            // worker that fails to load, so a broken download ends in the error state, not "loading".
+            const worker = new lib.PDFWorker({ name: "minigit-viewer" });
+            try {
+                await worker.promise;
+            } catch (err) {
+                worker.destroy();
+                throw err;
+            }
+            return { lib, worker };
+        });
+        pdfjsLib.catch(() => { pdfjsLib = null; });  // a failed download can be retried
+    }
+    return pdfjsLib;
+}
+
+function createDocViewer(root) {
+    const stage = root.querySelector("#dvStage");
+    const thumbs = root.querySelector("#dvThumbs");
+    const statusText = root.querySelector("#dvStatusText");
+    const progress = root.querySelector("#dvProgress");
+    const retry = root.querySelector("#dvRetry");
+    const pageLabel = root.querySelector("#dvPage");
+    const count = root.querySelector("#dvCount");
+    const prev = root.querySelector("#dvPrev");
+    const next = root.querySelector("#dvNext");
+    const zoomOut = root.querySelector("#dvZoomOut");
+    const zoomIn = root.querySelector("#dvZoomIn");
+    const zoomFit = root.querySelector("#dvZoomFit");
+
+    const loaded = new Map();      // file -> pdf.js loading task (one download per document)
+    const slideCache = new Map();  // "slide@width" -> rendered nodes, for instant back and forward
+    const inFlight = new Map();    // "slide@width" -> pending render, shared by every caller
+    let want = null;               // last requested { doc, mode }, kept until the viewer goes live
+    let live = false;
+    let session = 0;               // bumped on every open; older async work sees it and stops
+    let pdf = null;
+    let mode = "report";
+    let current = 1;
+    let zoom = 1;
+    let shells = [];
+    let pageObserver = null;
+    let thumbObserver = null;
+    let size = { w: 0, h: 0 };
+    let viewerBroken = false;      // pdf.js or its worker failed to load (not just one document)
+
+    function setState(s, text) {
+        root.dataset.state = s;
+        if (text !== undefined) statusText.textContent = text;
+        retry.hidden = s !== "error";
+    }
+
+    function reset() {
+        session += 1;
+        pdf = null;
+        shells = [];
+        slideCache.clear();
+        inFlight.clear();
+        if (pageObserver) pageObserver.disconnect();
+        if (thumbObserver) thumbObserver.disconnect();
+        stage.replaceChildren();
+        thumbs.replaceChildren();
+    }
+
+    function getDocument({ lib, worker }, file) {
+        if (!loaded.has(file)) {
+            const task = lib.getDocument({ url: file, worker });
+            task.promise.catch(() => loaded.delete(file));
+            loaded.set(file, task);
+        }
+        return loaded.get(file);
+    }
+
+    // Draws page n at cssWidth into host: canvas first, then the text layer. A host whose width
+    // changed while this render ran (zoom, resize) is left alone; the newer render paints it.
+    async function paint(host, n, cssWidth, my, withText = true) {
+        const stale = () => my !== session || (host.style.width !== "" && host.style.width !== `${cssWidth}px`);
+        const page = await pdf.getPage(n);
+        if (my !== session) return false;
+        const base = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: cssWidth / base.width });
+        let ratio = Math.min(window.devicePixelRatio || 1, 2);
+        const area = viewport.width * viewport.height;
+        if (area * ratio * ratio > MAX_CANVAS_PIXELS) ratio = Math.sqrt(MAX_CANVAS_PIXELS / area);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.floor(viewport.width * ratio);
+        canvas.height = Math.floor(viewport.height * ratio);
+        canvas.setAttribute("aria-hidden", "true");
+        await page.render({
+            canvasContext: canvas.getContext("2d"),
+            canvas,
+            viewport,
+            transform: ratio === 1 ? null : [ratio, 0, 0, ratio, 0, 0],
+        }).promise;
+        if (stale()) return false;
+        host.style.aspectRatio = `${base.width} / ${base.height}`;
+        host.replaceChildren(canvas);
+        host.dataset.w = String(cssWidth);
+        if (!withText) return true;
+        const { lib } = await loadPdfjs();
+        const layer = document.createElement("div");
+        layer.className = "textLayer";
+        layer.style.setProperty("--total-scale-factor", String(viewport.scale));
+        await new lib.TextLayer({ textContentSource: page.streamTextContent(), container: layer, viewport }).render();
+        if (stale() || host.dataset.w !== String(cssWidth)) return true;
+        host.append(layer);
+        return true;
+    }
+
+    function innerSize() {
+        const cs = getComputedStyle(stage);
+        return {
+            w: stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+            h: stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom),
+        };
+    }
+
+    // ---- report: every page in one scrolling column ----
+    function buildReport(my, first) {
+        for (let n = 1; n <= pdf.numPages; n++) {
+            const el = document.createElement("div");
+            el.className = "dv-page";
+            el.dataset.page = String(n);
+            el.setAttribute("role", "group");
+            el.setAttribute("aria-label", `Page ${n} of ${pdf.numPages}`);
+            el.style.aspectRatio = `${first.width} / ${first.height}`;
+            stage.append(el);
+            shells.push(el);
+        }
+        stage.scrollTop = 0;
+        stage.scrollLeft = 0;
+        // Paint pages within a screen of the view; pages further away give their canvas back
+        // (a 300% zoom on a hi-DPI screen is about 64 MB of pixels per page).
+        pageObserver = new IntersectionObserver((entries) => {
+            for (const e of entries) {
+                if (e.isIntersecting) paintShell(e.target, my);
+                else if (e.target.dataset.w) { e.target.replaceChildren(); delete e.target.dataset.w; }
+            }
+        }, { root: stage, rootMargin: "100% 0px" });
+        layoutReport();
+        updatePageLabel();
+    }
+
+    function layoutReport() {
+        const w = Math.max(160, Math.floor(innerSize().w * zoom));
+        for (const el of shells) {
+            el.style.width = `${w}px`;
+            pageObserver.unobserve(el);
+            pageObserver.observe(el);  // observe() reports pages already on screen, which repaint at the new width
+        }
+        // the accessible name starts with the visible text (WCAG 2.5.3) and says what a press does
+        const pct = `${Math.round(zoom * 100)}%`;
+        zoomFit.textContent = zoom === 1 ? "Fit width" : pct;
+        zoomFit.setAttribute("aria-label", zoom === 1 ? "Fit width" : `${pct}, reset to fit width`);
+        setDisabled(zoomOut, zoom <= ZOOM_STEPS[0], zoomFit);
+        setDisabled(zoomIn, zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1], zoomFit);
+    }
+
+    // Disabling the focused button would drop focus to <body> (Firefox, Safari), outside the
+    // viewer's key handler. Hand focus to a neighbour first.
+    function setDisabled(button, off, fallback) {
+        if (off && document.activeElement === button) fallback.focus({ preventScroll: true });
+        button.disabled = off;
+    }
+
+    function paintShell(el, my) {
+        const w = el.style.width;
+        if (el.dataset.w === String(parseFloat(w)) || el.dataset.busy === w) return;
+        el.dataset.busy = w;
+        paint(el, Number(el.dataset.page), parseFloat(w), my)
+            .catch(() => {})  // a page that fails keeps its blank paper; the others still draw
+            .finally(() => { if (el.dataset.busy === w) delete el.dataset.busy; });
+    }
+
+    function updatePageLabel() {
+        if (mode !== "report" || !pdf) return;
+        const mark = stage.scrollTop + stage.clientHeight / 3;
+        let n = 1;
+        for (const el of shells) {
+            if (el.offsetTop > mark) break;
+            n = Number(el.dataset.page);
+        }
+        pageLabel.textContent = `Page ${n} of ${pdf.numPages}`;
+    }
+
+    function setZoom(z) {
+        if (mode !== "report" || !pdf) return;
+        const anchor = stage.scrollHeight ? stage.scrollTop / stage.scrollHeight : 0;
+        zoom = z;
+        layoutReport();
+        stage.scrollTop = anchor * stage.scrollHeight;
+        updatePageLabel();
+    }
+
+    // ---- slides: one slide on a stage, thumbnails to jump ----
+    function buildSlides(my) {
+        const host = document.createElement("div");
+        host.className = "dv-page dv-slide";
+        stage.append(host);
+        for (let n = 1; n <= pdf.numPages; n++) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "dv-thumb";
+            b.dataset.page = String(n);
+            b.setAttribute("aria-label", `Slide ${n}`);
+            const img = document.createElement("span");
+            img.className = "dv-thumb-img";
+            const num = document.createElement("span");
+            num.className = "dv-thumb-num";
+            num.setAttribute("aria-hidden", "true");
+            num.textContent = String(n);
+            b.append(img, num);
+            b.addEventListener("click", () => go(n));
+            thumbs.append(b);
+        }
+        thumbObserver = new IntersectionObserver((entries) => {
+            for (const e of entries) {
+                if (!e.isIntersecting) continue;
+                thumbObserver.unobserve(e.target);
+                paint(e.target.firstChild, Number(e.target.dataset.page), 168, my, false).catch(() => {});
+            }
+        }, { root: thumbs, rootMargin: "0px 50%" });
+        thumbs.querySelectorAll(".dv-thumb").forEach((b) => thumbObserver.observe(b));
+        current = 1;
+        go(1);
+    }
+
+    function slideWidth() {
+        const inner = innerSize();
+        const host = stage.querySelector(".dv-slide");
+        const [w, h] = (root.style.getPropertyValue("--dv-ratio") || "16 / 9").split("/").map(Number);
+        // in fullscreen the stage has a fixed height, so the slide fits inside it; otherwise height follows width
+        const fit = inner.h > 0 && host ? Math.min(inner.w, inner.h * (w / h)) : inner.w;
+        return Math.max(160, Math.floor(fit));
+    }
+
+    function go(n) {
+        if (mode !== "slides" || !pdf) return;
+        current = Math.max(1, Math.min(pdf.numPages, n));
+        count.textContent = `Slide ${current} of ${pdf.numPages}`;
+        setDisabled(prev, current === 1, current === pdf.numPages ? stage : next);
+        setDisabled(next, current === pdf.numPages, current === 1 ? stage : prev);
+        thumbs.querySelectorAll(".dv-thumb").forEach((b) => {
+            if (Number(b.dataset.page) === current) b.setAttribute("aria-current", "true");
+            else b.removeAttribute("aria-current");
+        });
+        const t = thumbs.children[current - 1];
+        if (t) {
+            const left = t.offsetLeft - (thumbs.clientWidth - t.offsetWidth) / 2;
+            thumbs.scrollTo({ left: Math.max(0, left), behavior: reduceMotion.matches ? "auto" : "smooth" });
+        }
+        showSlide(session);
+    }
+
+    // Renders slide n at width w once. A second caller (Next pressed while the slide is still
+    // being warmed up) waits for the same render instead of getting nothing.
+    function renderSlide(n, w, my) {
+        const key = `${n}@${w}`;
+        if (slideCache.has(key)) return Promise.resolve(slideCache.get(key));
+        if (inFlight.has(key)) return inFlight.get(key);
+        const job = (async () => {
+            const tmp = document.createElement("div");
+            if (!(await paint(tmp, n, w, my))) return null;
+            const nodes = { ratio: tmp.style.aspectRatio, children: [...tmp.childNodes] };
+            if (my !== session) return nodes;
+            slideCache.set(key, nodes);
+            if (slideCache.size > 8) slideCache.delete(slideCache.keys().next().value);
+            return nodes;
+        })().catch(() => null).finally(() => {
+            if (inFlight.get(key) === job) inFlight.delete(key);
+        });
+        inFlight.set(key, job);
+        return job;
+    }
+
+    async function showSlide(my) {
+        const host = stage.querySelector(".dv-slide");
+        if (!host) return;
+        const n = current;
+        const w = slideWidth();
+        host.style.width = `${w}px`;
+        const nodes = await renderSlide(n, w, my);
+        if (my !== session) return;
+        if (nodes && n === current && host.style.width === `${w}px`) {
+            host.style.aspectRatio = nodes.ratio;
+            host.replaceChildren(...nodes.children);
+        }
+        if (n === current && n < pdf.numPages) renderSlide(n + 1, w, my);  // warm the next slide
+    }
+
+    // ---- shared ----
+    async function open(doc, nextMode) {
+        want = { doc, mode: nextMode };
+        if (!live) return;
+        reset();
+        const my = session;
+        mode = nextMode;
+        zoom = 1;
+        root.dataset.mode = mode;
+        stage.setAttribute("aria-label", `${doc.title}, ${mode === "slides" ? "current slide" : "pages"}`);
+        setState("loading", mode === "slides" ? "Loading the slides" : "Loading the report");
+        progress.textContent = "";
+        viewerBroken = false;
+        try {
+            let pdfjs;
+            try {
+                pdfjs = await loadPdfjs();
+            } catch (err) {
+                viewerBroken = true;
+                throw err;
+            }
+            if (my !== session) return;
+            const task = getDocument(pdfjs, doc.file);
+            // the percentage is visual only: announcing every step would flood screen readers
+            task.onProgress = ({ loaded: got, total }) => {
+                if (my === session && total) progress.textContent = `${Math.min(100, Math.round((got / total) * 100))}%`;
+            };
+            const loadedPdf = await task.promise;
+            if (my !== session) return;
+            pdf = loadedPdf;
+            const first = (await pdf.getPage(1)).getViewport({ scale: 1 });
+            if (my !== session) return;
+            root.style.setProperty("--dv-ratio", `${first.width} / ${first.height}`);
+            setState("ready", "");
+            if (mode === "slides") buildSlides(my);
+            else buildReport(my, first);
+        } catch {
+            if (my !== session) return;
+            setState("error", viewerBroken
+                ? "The viewer couldn't load. Try again reloads the page, or open or save the PDF to read it."
+                : "This document couldn't be shown here. Open or save the PDF to read it.");
+        }
+    }
+
+    function relayout() {
+        if (!pdf) return;
+        const now = innerSize();
+        if (Math.abs(now.w - size.w) < 2 && Math.abs(now.h - size.h) < 2) return;
+        size = now;
+        if (mode === "report") setZoom(zoom);
+        else showSlide(session);
+    }
+
+    let resizeTimer = 0;
+    new ResizeObserver(() => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(relayout, 150);
+    }).observe(stage);
+
+    let scrollFrame = 0;
+    stage.addEventListener("scroll", () => {
+        if (scrollFrame) return;
+        scrollFrame = requestAnimationFrame(() => { scrollFrame = 0; updatePageLabel(); });
+    }, { passive: true });
+
+    // swipe between slides on touch screens; vertical drags still scroll the page
+    let swipe = null;
+    stage.addEventListener("pointerdown", (e) => {
+        swipe = mode === "slides" && e.pointerType !== "mouse" ? { x: e.clientX, y: e.clientY } : null;
+    });
+    stage.addEventListener("pointercancel", () => { swipe = null; });
+    stage.addEventListener("pointerup", (e) => {
+        if (!swipe) return;
+        const dx = e.clientX - swipe.x;
+        const dy = e.clientY - swipe.y;
+        swipe = null;
+        if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) go(current + (dx < 0 ? 1 : -1));
+    });
+
+    prev.addEventListener("click", () => go(current - 1));
+    next.addEventListener("click", () => go(current + 1));
+    zoomIn.addEventListener("click", () => setZoom(ZOOM_STEPS.find((z) => z > zoom + 0.001) ?? zoom));
+    zoomOut.addEventListener("click", () => setZoom([...ZOOM_STEPS].reverse().find((z) => z < zoom - 0.001) ?? zoom));
+    zoomFit.addEventListener("click", () => setZoom(1));
+    // pdf.js remembers a worker that failed to load for the life of the page, so after a viewer
+    // failure only a reload can retry. A document that failed to download just opens again.
+    retry.addEventListener("click", () => {
+        if (viewerBroken) {
+            location.hash = "reports";
+            location.reload();
+        } else if (want) {
+            open(want.doc, want.mode);
+        }
+    });
+
+    return {
+        open,
+        go,
+        get mode() { return mode; },
+        get current() { return current; },
+        activate() {
+            if (live) return;
+            live = true;
+            if (want) open(want.doc, want.mode);
+        },
+        clear() {
+            want = null;
+            reset();
+            setState("empty", "");
+        },
+    };
+}
+
 function setupPdf() {
     // One entry per phase and document; file: null means not published yet.
     const docs = {
@@ -940,13 +1360,15 @@ function setupPdf() {
         },
         2: {
             report: { file: "Reports/phase2.pdf", title: "MiniGit Phase 2 progress report", desc: "What was built: the four modules, the updated architecture, who did what, roadblocks and the remaining work.", name: "MiniGit-Phase2-Report.pdf" },
-            slides: { file: null, title: "MiniGit Phase 2 presentation", desc: "The slide deck for the Phase 2 review." },
+            slides: { file: "Reports/phase2-ppt.pdf", title: "MiniGit Phase 2 presentation", desc: "The Phase 2 review deck: feedback taken from Phase 1, the updated architecture, module status, tests, contributions and the Phase 3 roadmap.", name: "MiniGit-Phase2-Presentation.pdf" },
         },
     };
     const state = { phase: "2", kind: "report" };
     const phaseBtns = document.querySelectorAll(".pdf-tab[data-phase]");
     const kindBtns = document.querySelectorAll(".pdf-tab[data-kind]");
-    const frame = $("#pdfFrame");
+    const box = $("#pdfViewerContainer");
+    const view = $("#docView");
+    const viewer = createDocViewer(view);
 
     function show() {
         const d = docs[state.phase][state.kind];
@@ -955,16 +1377,15 @@ function setupPdf() {
         $("#pdfDocTitle").textContent = d.title;
         $("#pdfDocDesc").textContent = d.desc;
         const ready = Boolean(d.file);
-        frame.hidden = !ready;
+        view.hidden = !ready;
         $("#pdfEmpty").hidden = ready;
         $("#pdfActions").hidden = !ready;
-        if (!ready) return;
-        const src = `${d.file}#view=FitH`;
-        if (frame.getAttribute("src") !== src) frame.src = src;
+        if (!ready) { viewer.clear(); return; }
         $("#pdfOpenTabBtn").href = d.file;
         const dl = $("#pdfDownloadBtn");
         dl.href = d.file;
         dl.download = d.name;
+        viewer.open(d, state.kind === "slides" ? "slides" : "report");
     }
 
     phaseBtns.forEach((b) => b.addEventListener("click", () => { state.phase = b.dataset.phase; show(); }));
@@ -976,11 +1397,72 @@ function setupPdf() {
         state.phase = phase;
         state.kind = kind;
         show();
-    }))
-    const box = $("#pdfViewerContainer");
-    $("#pdfFullscreenBtn").addEventListener("click", () => {
+        viewer.activate();
+    }));
+    show();
+
+    // pdf.js (about 0.5 MB gzipped) is fetched only when the viewer comes near the screen
+    if ("IntersectionObserver" in window) {
+        const near = new IntersectionObserver((entries) => {
+            if (entries.some((e) => e.isIntersecting)) { near.disconnect(); viewer.activate(); }
+        }, { rootMargin: "600px 0px" });
+        near.observe(box);
+    } else {
+        viewer.activate();
+    }
+
+    // Slides: arrow keys, Page Up/Down, Home and End while focus is anywhere in the viewer
+    box.addEventListener("keydown", (e) => {
+        if (viewer.mode !== "slides" || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
+        if (e.target.closest("input, select, textarea")) return;
+        const step = { ArrowRight: 1, PageDown: 1, ArrowLeft: -1, PageUp: -1 }[e.key];
+        if (step) viewer.go(viewer.current + step);
+        else if (e.key === "Home") viewer.go(1);
+        else if (e.key === "End") viewer.go(Infinity);
+        else return;
+        e.preventDefault();
+    });
+
+    // Fullscreen, with a fixed-position fallback where the element API is missing (iPhone Safari)
+    const fsBtn = $("#pdfFullscreenBtn");
+    const isFull = () => document.fullscreenElement === box || box.classList.contains("is-fullscreen");
+    let inerted = [];
+    function syncFullscreen() {
+        const on = isFull();
+        fsBtn.querySelector("i").className = on ? "ph ph-arrows-in" : "ph ph-arrows-out";
+        fsBtn.querySelector("span").textContent = on ? "Exit fullscreen" : "Fullscreen";
+        document.documentElement.classList.toggle("dv-locked", box.classList.contains("is-fullscreen"));
+        // While the viewer covers the screen, the page behind it must not take focus or be read
+        // out: make every sibling on the path from the viewer up to <body> inert.
+        if (on && !inerted.length) {
+            for (let node = box; node && node !== document.body; node = node.parentElement) {
+                for (const sib of node.parentElement.children) {
+                    if (sib !== node && !sib.inert) { sib.inert = true; inerted.push(sib); }
+                }
+            }
+        } else if (!on && inerted.length) {
+            inerted.forEach((el) => { el.inert = false; });
+            inerted = [];
+            if (!box.contains(document.activeElement) || document.activeElement === document.body) fsBtn.focus({ preventScroll: true });
+        }
+    }
+    function useOverlay() {
+        box.classList.add("is-fullscreen");
+        syncFullscreen();
+    }
+    fsBtn.addEventListener("click", () => {
         if (document.fullscreenElement) document.exitFullscreen();
-        else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
+        else if (box.classList.contains("is-fullscreen")) box.classList.remove("is-fullscreen");
+        else if (box.requestFullscreen) box.requestFullscreen().catch(useOverlay);  // refused: fall back to the overlay
+        else box.classList.add("is-fullscreen");
+        syncFullscreen();
+    });
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && box.classList.contains("is-fullscreen")) {
+            box.classList.remove("is-fullscreen");
+            syncFullscreen();
+        }
     });
 }
 

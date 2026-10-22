@@ -1015,7 +1015,7 @@ code, kbd, pre { font-family: var(--font-mono); }
 }
 .pdf-tab[aria-pressed="true"] { background: var(--raised); color: var(--text); }
 .pdf-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.pdf-actions[hidden], .pdf-frame-wrap iframe[hidden] { display: none; }
+.pdf-actions[hidden] { display: none; }
 .pdf-empty {
     display: grid;
     justify-items: center;
@@ -1034,12 +1034,194 @@ code, kbd, pre { font-family: var(--font-mono); }
 .pdf-meta h3 { margin: 0 0 4px; font-size: 1.05rem; }
 .pdf-meta p { margin: 0; color: var(--muted); font-size: 0.93rem; max-width: 70ch; }
 .pdf-frame-wrap { padding: 16px 20px 20px; }
-.pdf-frame-wrap iframe {
-    width: 100%;
-    height: min(78vh, 760px);
+
+/* Document viewer: pages are always white paper on a "desk" that follows the theme */
+.dv { --dv-ratio: 16 / 9; --dv-desk: var(--raised); display: flex; flex-direction: column; gap: 10px; }
+:root:not([data-theme="light"]) .dv { --dv-desk: var(--term-bg); }
+.dv[hidden] { display: none; }
+.dv[data-mode="report"] .dv-for-slides,
+.dv[data-mode="slides"] .dv-for-report { display: none; }
+.dv:not([data-state="ready"]) .dv-tools,
+.dv:not([data-state="ready"]) .dv-thumbs { visibility: hidden; }
+.dv[data-state="ready"] .dv-status,
+.dv:not([data-state="ready"]) .dv-stage { display: none; }
+
+.dv-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dv-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dv[data-mode="slides"] .dv-tools { order: 2; justify-content: center; }
+.dv[data-mode="slides"] .dv-thumbs { order: 3; }
+.dv-zoom { display: inline-flex; gap: 4px; }
+.dv-btn {
+    display: inline-grid;
+    place-items: center;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-control);
+    background: var(--surface);
+    color: var(--text);
+    font: 500 0.85rem var(--font-sans);
+    cursor: pointer;
+}
+.dv-btn i { font-size: 1.05rem; }
+.dv-btn.dv-step { min-width: 44px; min-height: 44px; }
+.dv-btn:hover:not(:disabled) { border-color: var(--accent); }
+.dv-btn:disabled { opacity: 0.45; cursor: default; }
+.dv-zoom-label { min-width: 88px; font-variant-numeric: tabular-nums; }
+.dv-count { min-width: 12ch; text-align: center; font: 500 0.85rem var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.dv-hint { margin-left: 10px; color: var(--subtle); font-size: 0.8rem; }
+
+.dv-stage,
+.dv-status {
     border: 1px solid var(--line);
     border-radius: var(--r-control);
+    background: var(--dv-desk);
+}
+.dv-stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dv[data-mode="report"] .dv-stage,
+.dv[data-mode="report"] .dv-status { height: min(78vh, 760px); }
+/* the slide, its controls and the thumbnails fit one laptop screen (1440 x 900) together */
+.dv[data-mode="slides"] .dv-stage,
+.dv[data-mode="slides"] .dv-status { aspect-ratio: var(--dv-ratio); max-height: max(240px, calc(100vh - 400px)); }
+.dv-status {
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+}
+.dv-status p { margin: 0; color: var(--muted); font-size: 0.93rem; max-width: 46ch; }
+.dv-progress { font: 500 0.85rem var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.dv-progress:empty { display: none; }
+.dv-status [hidden] { display: none; }
+
+.dv[data-mode="report"] .dv-stage { position: relative; overflow: auto; padding: 16px; }
+.dv[data-mode="slides"] .dv-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    touch-action: pan-y;
+}
+.dv-page {
+    position: relative;
+    margin: 0 auto 16px;
     background: #fff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 8px 24px -12px rgb(0 0 0 / 0.35);
+}
+.dv-page:last-child { margin-bottom: 0; }
+.dv-slide { margin: 0; box-shadow: none; }
+.dv-page canvas { display: block; width: 100%; height: 100%; }
+
+.dv-thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; scrollbar-width: thin; }
+.dv-thumb {
+    position: relative;
+    flex: 0 0 auto;
+    width: 112px;
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--dv-desk);
+    overflow: hidden;
+    cursor: pointer;
+}
+.dv-thumb-img { display: block; aspect-ratio: var(--dv-ratio); background: #fff; }
+.dv-thumb-img canvas { display: block; width: 100%; height: 100%; }
+.dv-thumb-num {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text);
+    font: 500 0.7rem var(--font-mono);
+}
+.dv-thumb:hover { border-color: var(--accent); }
+.dv-thumb[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.dv-thumb[aria-current="true"] .dv-thumb-num { background: var(--accent); color: var(--on-accent); }
+.dv-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* pdf.js text layer (from pdfjs-dist 6.4.299 web/pdf_viewer.css, flattened): transparent, selectable text */
+.textLayer {
+    color-scheme: only light;
+    position: absolute;
+    text-align: initial;
+    inset: 0;
+    overflow: clip;
+    opacity: 1;
+    line-height: 1;
+    letter-spacing: normal;
+    word-spacing: normal;
+    text-size-adjust: none;
+    forced-color-adjust: none;
+    transform-origin: 0 0;
+    caret-color: CanvasText;
+    z-index: 0;
+    --min-font-size: 1;
+    --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+    --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.textLayer span,
+.textLayer br {
+    color: transparent;
+    position: absolute;
+    white-space: pre;
+    cursor: text;
+    transform-origin: 0% 0%;
+    user-select: text;
+}
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+    z-index: 1;
+    --font-height: 0;
+    font-size: calc(var(--text-scale-factor) * var(--font-height));
+    --scale-x: 1;
+    --rotate: 0deg;
+    transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.textLayer .markedContent { display: contents; }
+.textLayer span[role="img"] { user-select: none; cursor: default; }
+.textLayer ::selection { background: rgb(0 0 255 / 0.25); background: color-mix(in srgb, AccentColor, transparent 50%); color: transparent; }
+.textLayer br::selection { background: transparent; }
+.textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: 0; cursor: default; user-select: none; }
+
+/* Fullscreen: the browser API where it exists, a fixed overlay otherwise (iPhone Safari) */
+.pdf:fullscreen { display: flex; flex-direction: column; border-radius: 0; background: var(--bg); }
+.pdf.is-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    border-radius: 0;
+    background: var(--bg);
+}
+html.dv-locked { overflow: hidden; }
+.pdf:fullscreen .pdf-meta, .pdf.is-fullscreen .pdf-meta { display: none; }
+.pdf:fullscreen .pdf-frame-wrap, .pdf.is-fullscreen .pdf-frame-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pdf:fullscreen .dv, .pdf.is-fullscreen .dv { flex: 1; min-height: 0; }
+.pdf:fullscreen .dv-stage, .pdf.is-fullscreen .dv-stage,
+.pdf:fullscreen .dv-status, .pdf.is-fullscreen .dv-status { flex: 1; min-height: 0; height: auto; max-height: none; aspect-ratio: auto; }
+
+@media (max-width: 767px) {
+    .pdf-frame-wrap { padding: 12px; }
+    .dv[data-mode="report"] .dv-stage,
+    .dv[data-mode="report"] .dv-status { height: min(70vh, 640px); }
+    .dv[data-mode="report"] .dv-stage { padding: 10px; }
+    .dv-page { margin-bottom: 10px; }
+    .dv-hint { display: none; }
+    .dv-thumb { width: 92px; }
+}
+@media (pointer: coarse) {
+    .dv-hint { display: none; }
+    /* primary touch controls get the 44 px target size */
+    .pdf .pdf-tab,
+    .pdf .btn-sm,
+    .dv-btn { min-height: 44px; }
+    .dv-btn { min-width: 44px; }
 }
 
 .refs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 40px; }

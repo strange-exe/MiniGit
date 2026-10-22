@@ -453,6 +453,7 @@ redo  [ ]            cleared by a new commit</pre>
                         <p><code>init</code>, <code>add</code>, <code>ignore</code>, <code>commit</code> and <code>log</code>, plus undo and redo on two deques and a table-driven CLI.</p>
                         <div class="phase-links">
                             <a href="#reports" data-open-doc="2:report"><i class="ph ph-file-pdf" aria-hidden="true"></i>Progress report</a>
+                            <a href="#reports" data-open-doc="2:slides"><i class="ph ph-presentation" aria-hidden="true"></i>Slides</a>
                             <a href="#architecture"><i class="ph ph-tree-structure" aria-hidden="true"></i>Architecture</a>
                         </div>
                     </li>
@@ -572,17 +573,41 @@ redo  [ ]            cleared by a new commit</pre>
                             </div>
                         </div>
                         <div class="pdf-actions" id="pdfActions">
-                            <a id="pdfOpenTabBtn" href="Reports/phase2.pdf" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><i class="ph ph-arrow-up-right" aria-hidden="true"></i> Open</a>
+                            <a id="pdfOpenTabBtn" href="Reports/phase2.pdf" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm"><i class="ph ph-arrow-up-right" aria-hidden="true"></i> Open</a>
                             <a id="pdfDownloadBtn" href="Reports/phase2.pdf" download="MiniGit-Phase2-Report.pdf" class="btn btn-secondary btn-sm"><i class="ph ph-download-simple" aria-hidden="true"></i> Save PDF</a>
-                            <button id="pdfFullscreenBtn" type="button" class="btn btn-secondary btn-sm"><i class="ph ph-arrows-out" aria-hidden="true"></i> Fullscreen</button>
+                            <button id="pdfFullscreenBtn" type="button" class="btn btn-secondary btn-sm"><i class="ph ph-arrows-out" aria-hidden="true"></i> <span>Fullscreen</span></button>
                         </div>
                     </div>
-                    <div class="pdf-meta" aria-live="polite">
+                    <div class="pdf-meta">
                         <h3 id="pdfDocTitle">MiniGit Phase 2 progress report</h3>
                         <p id="pdfDocDesc">What was built: the four modules, the updated architecture, who did what, roadblocks and the remaining work.</p>
                     </div>
                     <div class="pdf-frame-wrap">
-                        <iframe id="pdfFrame" src="Reports/phase2.pdf#view=FitH" title="MiniGit document viewer" loading="lazy"></iframe>
+                        <div class="dv" id="docView" data-state="idle" data-mode="report">
+                            <div class="dv-tools">
+                                <div class="dv-group dv-for-report">
+                                    <span class="dv-count" id="dvPage">Page 1</span>
+                                    <span class="dv-zoom" role="group" aria-label="Zoom">
+                                        <button type="button" class="dv-btn" id="dvZoomOut" aria-label="Zoom out"><i class="ph ph-minus" aria-hidden="true"></i></button>
+                                        <button type="button" class="dv-btn dv-zoom-label" id="dvZoomFit">Fit width</button>
+                                        <button type="button" class="dv-btn" id="dvZoomIn" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
+                                    </span>
+                                </div>
+                                <div class="dv-group dv-for-slides">
+                                    <button type="button" class="dv-btn dv-step" id="dvPrev" aria-label="Previous slide"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+                                    <span class="dv-count" id="dvCount" aria-live="polite" aria-atomic="true">Slide 1</span>
+                                    <button type="button" class="dv-btn dv-step" id="dvNext" aria-label="Next slide"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+                                    <span class="dv-hint">Arrow keys or swipe to move between slides</span>
+                                </div>
+                            </div>
+                            <div class="dv-stage" id="dvStage" tabindex="0" role="region" aria-label="Document pages"></div>
+                            <div class="dv-thumbs dv-for-slides" id="dvThumbs" role="group" aria-label="Jump to a slide"></div>
+                            <div class="dv-status" id="dvStatus" role="status">
+                                <p id="dvStatusText">The document loads when you reach this section.</p>
+                                <span class="dv-progress" id="dvProgress" aria-hidden="true"></span>
+                                <button type="button" class="btn btn-secondary btn-sm" id="dvRetry" hidden>Try again</button>
+                            </div>
+                        </div>
                         <div class="pdf-empty" id="pdfEmpty" hidden>
                             <i class="ph ph-presentation" aria-hidden="true"></i>
                             <strong>Not published yet</strong>
