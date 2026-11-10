@@ -1362,8 +1362,12 @@ function setupPdf() {
             report: { file: "Reports/phase2.pdf", title: "MiniGit Phase 2 progress report", desc: "What was built: the four modules, the updated architecture, who did what, roadblocks and the remaining work.", name: "MiniGit-Phase2-Report.pdf" },
             slides: { file: "Reports/phase2-ppt.pdf", title: "MiniGit Phase 2 presentation", desc: "The Phase 2 review deck: feedback taken from Phase 1, the updated architecture, module status, tests, contributions and the Phase 3 roadmap.", name: "MiniGit-Phase2-Presentation.pdf" },
         },
+        3: {
+            report: { file: "Reports/phase3.pdf", title: "MiniGit Phase 3 final report", desc: "The finished system: restore, rollback and branches, the final architecture, who did what, roadblocks and the test results.", name: "MiniGit-Phase3-Report.pdf" },
+            slides: { file: null, title: "MiniGit Phase 3 presentation", desc: "The final review deck.", name: "MiniGit-Phase3-Presentation.pdf" },
+        },
     };
-    const state = { phase: "2", kind: "report" };
+    const state = { phase: "3", kind: "report" };
     const phaseBtns = document.querySelectorAll(".pdf-tab[data-phase]");
     const kindBtns = document.querySelectorAll(".pdf-tab[data-kind]");
     const box = $("#pdfViewerContainer");
@@ -1380,7 +1384,13 @@ function setupPdf() {
         view.hidden = !ready;
         $("#pdfEmpty").hidden = ready;
         $("#pdfActions").hidden = !ready;
-        if (!ready) { viewer.clear(); return; }
+        if (!ready) {
+            const p = state.phase;
+            $("#pdfEmptyText").textContent = `The Phase ${p} slides will appear here after the Phase ${p} presentation. The report is available now.`;
+            $("#pdfEmptyBack").textContent = `View the Phase ${p} report`;
+            viewer.clear();
+            return;
+        }
         $("#pdfOpenTabBtn").href = d.file;
         const dl = $("#pdfDownloadBtn");
         dl.href = d.file;
@@ -1480,21 +1490,21 @@ const ARCH_NODES = [
     ["mod", "m-ignore", 515, 238, 170, "ignore", "IgnoreManager", [1, 0], "ignore"],
     ["mod", "m-commit", 715, 238, 170, "commit, undo, redo", "CommitCommand", [1, 0], "commit undo"],
     ["mod", "m-log", 915, 238, 170, "log", "LogCommand", [1, 0], "log"],
-    ["mod", "m-checkout", 1115, 238, 170, "checkout, rollback", "PHASE 3", [1, 0], "checkout", true],
-    ["mod", "m-branch", 1315, 238, 170, "branch, switch", "FUTURE", [1, 0], "branch", true],
+    ["mod", "m-checkout", 1115, 238, 170, "checkout, rollback", "Restore, Rollback", [1, 0], "checkout"],
+    ["mod", "m-branch", 1315, 238, 170, "branch, checkout", "BranchCommand", [1, 0], "branch"],
     ["ds", "d-set", 315, 398, 170, "Ordered set", "std::set", [0, 1], "add"],
-    ["ds", "d-trie", 515, 398, 170, "Dual trie", "paths, reversed extensions", [0, 0], "add ignore"],
+    ["ds", "d-trie", 515, 398, 170, "Dual trie", "paths, reversed extensions", [0, 0], "add ignore checkout"],
     ["ds", "d-deque", 715, 398, 170, "Two deques", "undo and redo states", [0, 0], "commit undo"],
     ["ds", "d-list", 915, 398, 170, "Doubly linked list", "CommitLog", [0, 1], "log"],
-    ["ds", "d-stack", 1115, 398, 170, "Stack", "previous versions", [0, 0], "checkout", true],
-    ["ds", "d-graph", 1315, 398, 170, "Commit graph", "DAG of branches", [0, 0], "branch", true],
-    ["st", "s-head", 115, 568, 170, "HEAD", "refs/heads/main", [1, 1], "init commit undo log"],
-    ["st", "s-index", 315, 568, 170, "index", "staged paths", [1, 0], "init add commit"],
-    ["st", "s-ignore", 515, 568, 170, ".minigitignore", "one rule per line", [1, 0], "init add ignore"],
+    ["ds", "d-map", 1115, 398, 170, "Ordered map", "path to file content", [0, 0], "checkout"],
+    ["ds", "d-graph", 1315, 398, 170, "Commit graph", "DAG adjacency list", [0, 0], "branch"],
+    ["st", "s-head", 115, 568, 170, "HEAD", "branch ref or commit id", [1, 0], "init commit undo log checkout branch"],
+    ["st", "s-index", 315, 568, 170, "index", "staged paths", [1, 0], "init add commit checkout"],
+    ["st", "s-ignore", 515, 568, 170, ".minigitignore", "one rule per line", [1, 0], "init add ignore checkout"],
     ["st", "s-history", 715, 568, 170, "history", "saved undo/redo states", [1, 0], "commit undo"],
-    ["st", "s-objects", 915, 568, 170, "objects/<id>/", "metadata, snapshot", [1, 0], "commit log checkout"],
-    ["st", "s-work", 1115, 568, 170, "Working files", "restored from snapshot", [0, 0], "checkout", true],
-    ["st", "s-refs", 1315, 568, 170, "refs/heads/*", "one ref per branch", [1, 0], "branch", true],
+    ["st", "s-objects", 915, 568, 170, "objects/<id>/", "metadata, snapshot", [1, 0], "commit log checkout branch"],
+    ["st", "s-work", 1115, 568, 170, "Working files", "restored from snapshot", [0, 0], "checkout branch"],
+    ["st", "s-refs", 1315, 568, 170, "refs/heads/*", "one ref per branch", [1, 0], "branch"],
 ];
 
 const ARCH_EDGES = [
@@ -1507,22 +1517,22 @@ const ARCH_EDGES = [
     ["call", "M600 178 H700", "init add ignore", { end: false }],
     ["call", "M700 178 H800", "commit undo log checkout branch", { end: false }],
     ["call", "M800 178 H1000", "log checkout branch", { end: false }],
-    ["plan", "M1000 178 H1200", "checkout branch", { end: false }],
-    ["plan", "M1200 178 H1400", "branch", { end: false }],
+    ["call", "M1000 178 H1200", "checkout branch", { end: false }],
+    ["call", "M1200 178 H1400", "branch", { end: false }],
     ["call", "M200 178 V235", "init"],
     ["call", "M400 178 V235", "add"],
     ["call", "M600 178 V235", "ignore"],
     ["call", "M800 178 V235", "commit undo"],
     ["call", "M1000 178 V235", "log"],
-    ["plan", "M1200 178 V235", "checkout"],
-    ["plan", "M1400 178 V235", "branch"],
+    ["call", "M1200 178 V235", "checkout"],
+    ["call", "M1400 178 V235", "branch"],
     ["look", "M485 260 H505 V340 H560 V395", "add", { label: [420, 336, "is it ignored?"] }],
     ["call", "M400 300 V395", "add"],
     ["call", "M600 300 V395", "ignore"],
     ["call", "M800 300 V395", "commit undo"],
     ["call", "M1000 300 V395", "log"],
-    ["plan", "M1200 300 V395", "checkout"],
-    ["plan", "M1400 300 V395", "branch"],
+    ["call", "M1200 300 V395", "checkout"],
+    ["call", "M1400 300 V395", "branch"],
     ["file", "M200 300 V565", "init", { label: [210, 438, "creates .minigit/"] }],
     ["file", "M400 463 V565", "add", { both: true, label: [408, 503, "load / save"] }],
     ["file", "M600 463 V565", "add ignore", { both: true, label: [608, 503, "load / save"] }],
@@ -1536,9 +1546,9 @@ const ARCH_EDGES = [
     ["file", "M400 648 V633", "commit", { only: true, label: [408, 669, "reads, then clears"] }],
     ["file", "M715 290 H700 V648 H200 V633", "undo", { only: true, label: [208, 669, "moves the ref"] }],
     ["file", "M200 633 V648 H1092 V280 H1088", "log", { only: true, label: [208, 669, "reads HEAD first"] }],
-    ["plan", "M1200 463 V565", "checkout"],
-    ["plan", "M1400 463 V565", "branch"],
-    ["plan", "M1085 599 H1112", "checkout"],
+    ["file", "M1200 463 V565", "checkout", { label: [1208, 503, "writes"] }],
+    ["file", "M1400 463 V565", "branch", { both: true, label: [1408, 503, "reads / writes"] }],
+    ["file", "M1085 599 H1112", "checkout"],
 ];
 
 const ARCH_TRACES = {
@@ -1617,27 +1627,31 @@ const ARCH_TRACES = {
         facts: [["Source", "LogCommand.cpp, CommitLog.cpp"], ["Data structure", "Doubly linked list"], ["Cost", "O(n) walk in either direction"], ["Writes", "Nothing, read only"]],
     },
     checkout: {
-        kicker: "Planned, Phase 3", title: "minigit checkout / rollback", col: 1200,
-        hot: ["m-checkout", "d-stack", "s-work"], planned: true,
-        lead: "Not built yet. This is the plan from the Phase 1 design report.",
+        kicker: "Command", title: "minigit checkout <commit-id> / rollback", col: 1200,
+        hot: ["m-checkout", "d-map", "s-work"],
+        lead: "checkout restores any saved commit and detaches HEAD; rollback moves the current branch back to it. Newer commits are never deleted.",
         steps: [
-            [["m-checkout"], "<code>checkout &lt;id&gt;</code> will restore the files of a chosen commit."],
-            [["d-stack"], "Before restoring, the current version is pushed onto a stack."],
-            [["s-objects", "s-work"], "Files are copied back from <code>objects/&lt;id&gt;/snapshot</code> into the working folder."],
-            [["d-stack"], "<code>rollback</code> pops the stack to undo the last checkout."],
+            [["s-objects"], "The commit is found by its full id or a unique prefix, and its file list is read from <code>objects/&lt;id&gt;/metadata</code>, including the files it deleted."],
+            [["d-map"], "The current tree and the target tree are each built as an ordered map from path to file content, so the two compare in one sorted walk."],
+            [["s-index", "s-work"], "If any staged, edited or deleted file would be lost, it stops and changes nothing."],
+            [["d-trie", "s-ignore"], "Every path is checked against the ignore rules first, so ignored files are never written or deleted."],
+            [["s-objects", "s-work"], "Each file is written to a temporary copy and swapped in with a backup, so a failure part-way puts everything back."],
+            [["s-head"], "checkout writes the commit id into <code>HEAD</code> (detached); rollback moves the branch ref instead. While detached, commit, undo, redo and rollback refuse."],
         ],
-        facts: [["Status", "Phase 3"], ["Data structure", "Stack (LIFO)"], ["Cost", "O(1) push and pop"], ["Writes", "Working files"]],
+        facts: [["Source", "RestoreCommand.cpp, RollbackCommand.cpp"], ["Data structure", "Ordered map (red-black tree)"], ["Cost", "O(n log n), n = files"], ["Writes", "Working files, HEAD or the branch ref"]],
     },
     branch: {
-        kicker: "Future idea", title: "minigit branch / switch", col: 1400,
-        hot: ["m-branch", "d-graph", "s-refs"], planned: true,
-        lead: "Out of scope for this project: MiniGit keeps one linear history on main. Shown to explain why refs/heads/ already exists.",
+        kicker: "Command", title: "minigit branch / checkout <branch>", col: 1400,
+        hot: ["m-branch", "d-graph", "s-refs"],
+        lead: "Creates, lists, deletes and switches branches. log --all --graph draws them all on one commit graph.",
         steps: [
-            [["m-branch"], "<code>branch &lt;name&gt;</code> would create a new ref; <code>switch</code> would point HEAD at it."],
-            [["d-graph"], "History would become a graph: two commits can share a parent."],
-            [["s-refs"], "Each branch is one file under <code>refs/heads/</code>, like <code>main</code> today."],
+            [["m-branch", "s-refs"], "<code>branch &lt;name&gt;</code> writes one file, <code>refs/heads/&lt;name&gt;</code>, holding the current commit id. Names that could leave the folder are refused."],
+            [["s-head"], "<code>checkout &lt;branch&gt;</code> points <code>HEAD</code> at that ref and restores its files, unless unsaved work would be lost."],
+            [["s-objects", "d-graph"], "<code>log --all --graph</code> reads every commit reachable from every branch into an adjacency list keyed by commit id."],
+            [["d-graph"], "A three-colour DFS rejects cycles, a priority queue orders commits newest first, and a BFS finds what each branch can reach."],
+            [["out"], "The graph is printed with each branch name beside its commit."],
         ],
-        facts: [["Status", "Not planned"], ["Data structure", "Directed acyclic graph"], ["Cost", "O(V + E) to walk"], ["Writes", "refs/heads/<name>"]],
+        facts: [["Source", "BranchCommand.cpp, CommitGraph.cpp"], ["Data structure", "DAG as an adjacency list"], ["Cost", "O(V + E) to walk"], ["Writes", "refs/heads/<name>, HEAD"]],
     },
 };
 
@@ -1670,8 +1684,6 @@ function setupArch() {
         el("rect", { class: `band band-${k}`, x: 30, y, width: 1460, height: h, rx: 10 }, svg);
         text(svg, `band-name bn-${k}`, 0, 0, name).setAttribute("transform", `translate(66 ${y + h / 2}) rotate(-90)`);
     }
-    el("line", { class: "sep", x1: 1100, y1: 206, x2: 1100, y2: 674 }, svg);
-    text(svg, "ptag", 1300, 702, "PLANNED", "middle");
 
     const parts = [];
     const edges = el("g", {}, svg);

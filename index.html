@@ -225,10 +225,8 @@ redo  [ ]            cleared by a new commit</pre>
                             <button type="button" class="arch-pick" data-trace="commit" aria-pressed="false">commit</button>
                             <button type="button" class="arch-pick" data-trace="undo" aria-pressed="false">undo / redo</button>
                             <button type="button" class="arch-pick" data-trace="log" aria-pressed="false">log</button>
-                        </div>
-                        <div class="arch-picks" role="group" aria-label="Trace a planned command">
-                            <button type="button" class="arch-pick planned" data-trace="checkout" aria-pressed="false">checkout</button>
-                            <button type="button" class="arch-pick planned" data-trace="branch" aria-pressed="false">branch</button>
+                            <button type="button" class="arch-pick" data-trace="checkout" aria-pressed="false">checkout / rollback</button>
+                            <button type="button" class="arch-pick" data-trace="branch" aria-pressed="false">branch</button>
                         </div>
                         <button type="button" class="arch-pick arch-all" data-trace="" aria-pressed="false">Show all</button>
                         <p class="arch-tour" id="archTour" hidden><span class="arch-tour-dot" aria-hidden="true"></span>Short tour playing. Click anywhere in the diagram to stop.</p>
@@ -237,7 +235,7 @@ redo  [ ]            cleared by a new commit</pre>
                     <div class="arch-scroll" id="archScroll">
                         <svg id="archSvg" viewBox="0 0 1520 714" role="img" aria-labelledby="archSvgTitle archSvgDesc">
                             <title id="archSvgTitle">MiniGit architecture</title>
-                            <desc id="archSvgDesc">Four layers: CLI, modules, data structures and storage. Each command module uses one data structure, and each data structure loads and saves its own file in .minigit/. Dashed boxes are planned: checkout and rollback in Phase 3, and branches as a future idea.</desc>
+                            <desc id="archSvgDesc">Four layers: CLI, modules, data structures and storage. Each command module uses one data structure, and each data structure loads and saves its own file in .minigit/. checkout and rollback restore files from saved snapshots through an ordered map; branch keeps one ref per branch and walks the commit graph.</desc>
                         </svg>
                     </div>
 
@@ -245,7 +243,6 @@ redo  [ ]            cleared by a new commit</pre>
                         <li><span class="key key-call" aria-hidden="true"></span>calls</li>
                         <li><span class="key key-file" aria-hidden="true"></span>reads or writes a file</li>
                         <li><span class="key key-look" aria-hidden="true"></span>lookup</li>
-                        <li><span class="key key-plan" aria-hidden="true"></span>planned</li>
                     </ul>
 
                     <div class="arch-detail" id="archDetail" aria-live="polite">
@@ -383,6 +380,18 @@ redo  [ ]            cleared by a new commit</pre>
                             <li class="cmd-row"><code>minigit log [--reverse]</code><p>Shows history newest first, or oldest first with <code>--reverse</code>.</p><button class="run" type="button" data-run="minigit log">Run</button></li>
                         </ul>
                     </div>
+
+                    <div class="cmd-group reveal">
+                        <h3>Restore and branches</h3>
+                        <p>Go back to any commit, or work on a branch. The browser demo keeps one branch, so try these with the sample repository's <code>walkthrough.ps1</code>.</p>
+                        <ul class="cmd-list">
+                            <li class="cmd-row"><code>minigit checkout &lt;commit-id&gt;</code><p>Restores that commit's files and detaches HEAD; no branch moves. A unique prefix of the id is enough.</p></li>
+                            <li class="cmd-row"><code>minigit rollback &lt;commit-id&gt;</code><p>Moves the current branch back to that commit and restores its files. Newer commits stay stored.</p></li>
+                            <li class="cmd-row"><code>minigit branch [&lt;name&gt;]</code><p>Lists branches, or creates one at the current commit. <code>branch -d &lt;name&gt;</code> deletes it.</p></li>
+                            <li class="cmd-row"><code>minigit checkout &lt;branch&gt;</code><p>Switches to a branch and restores its files. Unsaved work stops it unless you add <code>--force</code>.</p></li>
+                            <li class="cmd-row"><code>minigit log --all --graph</code><p>Draws every branch on the commit graph, newest first.</p></li>
+                        </ul>
+                    </div>
                     </div>
                 </div>
                 <p class="cmd-note reveal">Wrong or extra arguments print that command's usage and exit with 1. A typo such as <code>minigit comit</code> suggests the closest command.</p>
@@ -434,8 +443,8 @@ redo  [ ]            cleared by a new commit</pre>
         <section id="roadmap" class="section" aria-labelledby="road-title">
             <div class="container">
                 <div class="section-head reveal">
-                    <h2 id="road-title">Three phases, two done.</h2>
-                    <p>The plan from the Phase 1 design report, and where each part stands after the Phase 2 review.</p>
+                    <h2 id="road-title">Three phases, all delivered.</h2>
+                    <p>The plan from the Phase 1 design report, and what each phase delivered.</p>
                 </div>
                 <ol class="phases reveal">
                     <li class="done">
@@ -457,10 +466,14 @@ redo  [ ]            cleared by a new commit</pre>
                             <a href="#architecture"><i class="ph ph-tree-structure" aria-hidden="true"></i>Architecture</a>
                         </div>
                     </li>
-                    <li class="next">
-                        <span class="phase-status">Phase 3, next</span>
-                        <h3>Restore, test and document</h3>
-                        <p><code>checkout</code> to restore a chosen version and <code>rollback</code> to undo that restore, with validation, error handling and final documentation.</p>
+                    <li class="done">
+                        <span class="phase-status">Phase 3, delivered</span>
+                        <h3>Restore, branches and the demo</h3>
+                        <p><code>checkout &lt;commit-id&gt;</code> restores any saved version with a detached HEAD, <code>rollback</code> moves the branch back, and <code>branch</code> with <code>log --all --graph</code> adds branches on a commit graph. 13 test suites, a sample repository and a demo walkthrough.</p>
+                        <div class="phase-links">
+                            <a href="#reports" data-open-doc="3:report"><i class="ph ph-file-pdf" aria-hidden="true"></i>Final report</a>
+                            <a href="#architecture"><i class="ph ph-tree-structure" aria-hidden="true"></i>Architecture</a>
+                        </div>
                     </li>
                 </ol>
 
@@ -470,7 +483,7 @@ redo  [ ]            cleared by a new commit</pre>
                         <ul>
                             <li>One user, one local repository</li>
                             <li>Text files such as <code>.cpp</code>, <code>.h</code>, <code>.md</code></li>
-                            <li>Linear history on a single branch, <code>main</code></li>
+                            <li>Branches, with <code>main</code> as the default</li>
                             <li>File, folder and extension ignore rules</li>
                         </ul>
                     </div>
@@ -478,7 +491,7 @@ redo  [ ]            cleared by a new commit</pre>
                         <h3>Out of scope</h3>
                         <ul>
                             <li>Remotes: push, pull and clone</li>
-                            <li>Branches and merging</li>
+                            <li>Merging branches</li>
                             <li>Diffs and delta compression</li>
                             <li>Multiple users or authentication</li>
                         </ul>
@@ -506,7 +519,7 @@ redo  [ ]            cleared by a new commit</pre>
                             <p class="ds">CLI, command table and repository setup</p>
                             <p>Implements <code>minigit init</code> and the <code>.minigit/</code> structure with <code>HEAD</code> and <code>index</code>; the <code>ignore</code> command interface and input validation; the dispatcher that connects every command to its module. Supervised and reviewed the Trie matching, deque history and linked-list traversal.</p>
                         </div>
-                        <p class="integ">Cross-module supervision, CLI integration, error messages and final module integration.</p>
+                        <p class="integ">Cross-module supervision, CLI integration and error messages. Phase 3: merged the branch and checkout work into one design, the sample repository and the demo walkthrough.</p>
                     </article>
 
                     <article class="member reveal">
@@ -519,33 +532,33 @@ redo  [ ]            cleared by a new commit</pre>
                             <p class="ds">Dual trie and the staging index</p>
                             <p>Implements the Trie with <code>insert()</code>, <code>search()</code>, <code>remove()</code> and path and extension matching; <code>minigit add &lt;file&gt;</code> and <code>add .</code>; skips ignored files and prevents duplicate staging.</p>
                         </div>
-                        <p class="integ">Staging and index handling, tests for <code>add</code> and <code>ignore</code>.</p>
+                        <p class="integ">Staging and index handling, tests for <code>add</code> and <code>ignore</code>. Phase 3: updated the ignore rules and the modules behind them.</p>
                     </article>
 
                     <article class="member reveal">
                         <div>
                             <h3>Krish Bajaj</h3>
                             <p class="role">Commits and history</p>
-                            <div class="cmds"><code>commit</code><code>undo</code><code>redo</code></div>
+                            <div class="cmds"><code>commit</code><code>undo</code><code>redo</code><code>rollback</code><code>branch</code></div>
                         </div>
                         <div>
-                            <p class="ds">Deque: undo and redo</p>
-                            <p>Implements <code>minigit commit</code>: commit IDs, metadata and snapshots; a deque of repository states for <code>undo</code> and <code>redo</code> with a history limit.</p>
+                            <p class="ds">Deque: undo and redo. Commit graph (DAG)</p>
+                            <p>Implements <code>minigit commit</code>: commit IDs, metadata and snapshots; a deque of repository states for <code>undo</code> and <code>redo</code> with a history limit. Phase 3: <code>rollback</code>, branches, <code>checkout &lt;branch&gt;</code> and the commit graph behind <code>log --all --graph</code>.</p>
                         </div>
-                        <p class="integ">Commit tests; connects commit state with storage.</p>
+                        <p class="integ">Commit, rollback, branch and graph tests; regression and integration suites.</p>
                     </article>
 
                     <article class="member reveal">
                         <div>
                             <h3>Snehil Joshi</h3>
                             <p class="role">History navigation</p>
-                            <div class="cmds"><code>log</code><code>log --reverse</code></div>
+                            <div class="cmds"><code>log</code><code>log --reverse</code><code>checkout &lt;id&gt;</code></div>
                         </div>
                         <div>
                             <p class="ds">Doubly linked list: commit log</p>
-                            <p>Implements the doubly linked list with <code>insert</code>, <code>find</code>, <code>next</code> and <code>prev</code>; <code>minigit log</code> with commit ID, message and timestamp, forward and backward.</p>
+                            <p>Implements the doubly linked list with <code>insert</code>, <code>find</code>, <code>next</code> and <code>prev</code>; <code>minigit log</code> with commit ID, message and timestamp, forward and backward. Phase 3: <code>checkout &lt;commit-id&gt;</code>, which restores a commit safely and detaches HEAD.</p>
                         </div>
-                        <p class="integ">History loading, log tests and persistence integration.</p>
+                        <p class="integ">History loading, log and checkout tests, persistence integration.</p>
                     </article>
                 </div>
             </div>
@@ -564,7 +577,8 @@ redo  [ ]            cleared by a new commit</pre>
                         <div class="pdf-pickers">
                             <div class="pdf-tabs" role="group" aria-label="Phase">
                                 <button class="pdf-tab" type="button" data-phase="1" aria-pressed="false">Phase 1</button>
-                                <button class="pdf-tab" type="button" data-phase="2" aria-pressed="true">Phase 2</button>
+                                <button class="pdf-tab" type="button" data-phase="2" aria-pressed="false">Phase 2</button>
+                                <button class="pdf-tab" type="button" data-phase="3" aria-pressed="true">Phase 3</button>
                             </div>
                             <span class="pdf-sep" aria-hidden="true"></span>
                             <div class="pdf-tabs" role="group" aria-label="Document">
@@ -573,14 +587,14 @@ redo  [ ]            cleared by a new commit</pre>
                             </div>
                         </div>
                         <div class="pdf-actions" id="pdfActions">
-                            <a id="pdfOpenTabBtn" href="Reports/phase2.pdf" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm"><i class="ph ph-arrow-up-right" aria-hidden="true"></i> Open</a>
-                            <a id="pdfDownloadBtn" href="Reports/phase2.pdf" download="MiniGit-Phase2-Report.pdf" class="btn btn-secondary btn-sm"><i class="ph ph-download-simple" aria-hidden="true"></i> Save PDF</a>
+                            <a id="pdfOpenTabBtn" href="Reports/phase3.pdf" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm"><i class="ph ph-arrow-up-right" aria-hidden="true"></i> Open</a>
+                            <a id="pdfDownloadBtn" href="Reports/phase3.pdf" download="MiniGit-Phase3-Report.pdf" class="btn btn-secondary btn-sm"><i class="ph ph-download-simple" aria-hidden="true"></i> Save PDF</a>
                             <button id="pdfFullscreenBtn" type="button" class="btn btn-secondary btn-sm"><i class="ph ph-arrows-out" aria-hidden="true"></i> <span>Fullscreen</span></button>
                         </div>
                     </div>
                     <div class="pdf-meta">
-                        <h3 id="pdfDocTitle">MiniGit Phase 2 progress report</h3>
-                        <p id="pdfDocDesc">What was built: the four modules, the updated architecture, who did what, roadblocks and the remaining work.</p>
+                        <h3 id="pdfDocTitle">MiniGit Phase 3 final report</h3>
+                        <p id="pdfDocDesc">The finished system: restore, rollback and branches, the final architecture, who did what, roadblocks and the test results.</p>
                     </div>
                     <div class="pdf-frame-wrap">
                         <div class="dv" id="docView" data-state="idle" data-mode="report">
@@ -611,8 +625,8 @@ redo  [ ]            cleared by a new commit</pre>
                         <div class="pdf-empty" id="pdfEmpty" hidden>
                             <i class="ph ph-presentation" aria-hidden="true"></i>
                             <strong>Not published yet</strong>
-                            <p>The Phase 2 slides will appear here after the Phase 2 presentation. The progress report is available now.</p>
-                            <button type="button" class="btn btn-secondary btn-sm" id="pdfEmptyBack">View the Phase 2 report</button>
+                            <p id="pdfEmptyText">The Phase 3 slides will appear here after the Phase 3 presentation. The report is available now.</p>
+                            <button type="button" class="btn btn-secondary btn-sm" id="pdfEmptyBack">View the Phase 3 report</button>
                         </div>
                     </div>
                 </div>
