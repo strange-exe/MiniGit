@@ -8,6 +8,9 @@
 /module/minigit
 /module/minigit.exe
 
+# Output of sample_repo/walkthrough.ps1
+/sample_repo/demo/
+
 # Local test minigit directories
 .minigit/
 .minigitignore

@@ -183,6 +183,16 @@ MiniGit includes **built-in zero-config self-installation**:
 
 ---
 
+## 🎬 Demo Walkthrough
+
+`sample_repo/` holds a small notes project and a script that runs every command on a copy of it, one step at a time:
+```powershell
+powershell -ExecutionPolicy Bypass -File sample_repo\walkthrough.ps1
+```
+See [sample_repo/README.md](sample_repo/README.md) for what each step shows.
+
+---
+
 ## 📂 Repository Structure
 
 ```
@@ -194,6 +204,7 @@ MiniGit-CLI/
 ├── Reports/                 # Phase evaluation documentation
 │   ├── ppt.pdf              # Phase-I presentation slides
 │   └── report.pdf           # Phase-I project proposal & architecture report
+├── sample_repo/             # Demo project and walkthrough.ps1 (see its README)
 └── module/                  # Core source code & unit tests
     ├── Makefile             # Module compilation and test runners
     ├── include/             # Header declarations
