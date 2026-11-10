@@ -1364,7 +1364,7 @@ function setupPdf() {
         },
         3: {
             report: { file: "Reports/phase3.pdf", title: "MiniGit Phase 3 final report", desc: "The finished system: restore, rollback and branches, the final architecture, who did what, roadblocks and the test results.", name: "MiniGit-Phase3-Report.pdf" },
-            slides: { file: null, title: "MiniGit Phase 3 presentation", desc: "The final review deck.", name: "MiniGit-Phase3-Presentation.pdf" },
+            slides: { file: "Reports/phase3-ppt.pdf", title: "MiniGit Phase 3 presentation", desc: "The final review deck: feedback taken from Phases 1 and 2, the final architecture, demo, tests, timings and contributions.", name: "MiniGit-Phase3-Presentation.pdf" },
         },
     };
     const state = { phase: "3", kind: "report" };
