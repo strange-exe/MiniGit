@@ -202,8 +202,11 @@ MiniGit-CLI/
 ├── Makefile                 # Top-level build orchestration
 ├── README.md                # Project documentation
 ├── Reports/                 # Phase evaluation documentation
+│   ├── report.pdf           # Phase-I project proposal & architecture report
 │   ├── ppt.pdf              # Phase-I presentation slides
-│   └── report.pdf           # Phase-I project proposal & architecture report
+│   ├── phase2.pdf           # Phase-II progress report
+│   ├── phase2-ppt.pdf       # Phase-II presentation slides
+│   └── phase3.pdf           # Phase-III final report
 ├── sample_repo/             # Demo project and walkthrough.ps1 (see its README)
 └── module/                  # Core source code & unit tests
     ├── Makefile             # Module compilation and test runners
