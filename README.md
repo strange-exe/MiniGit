@@ -206,7 +206,8 @@ MiniGit-CLI/
 │   ├── ppt.pdf              # Phase-I presentation slides
 │   ├── phase2.pdf           # Phase-II progress report
 │   ├── phase2-ppt.pdf       # Phase-II presentation slides
-│   └── phase3.pdf           # Phase-III final report
+│   ├── phase3.pdf           # Phase-III final report
+│   └── phase3-ppt.pdf       # Phase-III presentation slides
 ├── sample_repo/             # Demo project and walkthrough.ps1 (see its README)
 └── module/                  # Core source code & unit tests
     ├── Makefile             # Module compilation and test runners
