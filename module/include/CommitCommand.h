@@ -23,6 +23,7 @@ struct CommitResult {
     std::string message;
     int filesCommitted = 0;
     std::string errorMessage;
+    std::string branch;
 };
 
 // Core commit functions (do not print directly)

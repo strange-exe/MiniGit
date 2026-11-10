@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "FileUtils.h"
 #include "PathUtils.h"
 
 namespace fs = std::filesystem;
@@ -40,6 +41,12 @@ static bool readEntries(std::istream& in, std::size_t count, std::deque<HistoryE
         if (entry.commitId == "-") entry.commitId = "";
         if (entry.parentCommitId == "-") entry.parentCommitId = "";
         if (entry.timestamp == "-") entry.timestamp = "";
+        // Optional guard fields (absent in history files written by older versions).
+        std::string branch, expectedHead;
+        if (hs >> branch >> expectedHead) {
+            entry.branch = branch == "-" ? "" : branch;
+            entry.expectedHead = expectedHead == "-" ? "" : expectedHead;
+        }
 
         if (!readLine(in, entry.message)) return false;
         for (std::size_t s = 0; s < stagedCount; ++s) {
@@ -84,35 +91,23 @@ bool CommitHistory::save() const {
     fs::path gitDir = fs::path(root_) / ".minigit";
     if (!fs::is_directory(gitDir, ec)) return false;
 
-    std::ofstream out(historyFilePath(), std::ios::trunc);
-    if (!out) return false;
-
-    // Save undoDeque_
-    out << "UNDO_COUNT " << undoDeque_.size() << "\n";
-    for (const auto& entry : undoDeque_) {
-        std::string cid = entry.commitId.empty() ? "-" : entry.commitId;
-        std::string pid = entry.parentCommitId.empty() ? "-" : entry.parentCommitId;
-        std::string ts = entry.timestamp.empty() ? "-" : entry.timestamp;
-        out << cid << " " << pid << " " << ts << " " << entry.stagedFiles.size() << "\n";
-        out << entry.message << "\n";
-        for (const auto& f : entry.stagedFiles) {
-            out << f << "\n";
+    auto dash = [](const std::string& s) { return s.empty() ? std::string("-") : s; };
+    std::ostringstream out;
+    auto writeSection = [&](const char* title, const std::deque<HistoryEntry>& entries) {
+        out << title << " " << entries.size() << "\n";
+        for (const auto& entry : entries) {
+            out << dash(entry.commitId) << " " << dash(entry.parentCommitId) << " " << dash(entry.timestamp) << " "
+                << entry.stagedFiles.size() << " " << dash(entry.branch) << " " << dash(entry.expectedHead) << "\n";
+            out << entry.message << "\n";
+            for (const auto& f : entry.stagedFiles) {
+                out << f << "\n";
+            }
         }
-    }
-
-    // Save redoDeque_
-    out << "REDO_COUNT " << redoDeque_.size() << "\n";
-    for (const auto& entry : redoDeque_) {
-        std::string cid = entry.commitId.empty() ? "-" : entry.commitId;
-        std::string pid = entry.parentCommitId.empty() ? "-" : entry.parentCommitId;
-        std::string ts = entry.timestamp.empty() ? "-" : entry.timestamp;
-        out << cid << " " << pid << " " << ts << " " << entry.stagedFiles.size() << "\n";
-        out << entry.message << "\n";
-        for (const auto& f : entry.stagedFiles) {
-            out << f << "\n";
-        }
-    }
-    return true;
+    };
+    writeSection("UNDO_COUNT", undoDeque_);
+    writeSection("REDO_COUNT", redoDeque_);
+    // Replaced atomically: a crash can never leave a truncated history that undo would trust.
+    return writeFileAtomic(historyFilePath(), out.str());
 }
 
 // Records a state snapshot before a new commit.

@@ -160,7 +160,68 @@ int main() {
         CHECK(out.find("escapes the repository") != std::string::npos);
     }
 
-    // 12. Clean up
+    // 12. Help is generated from the command table: every command is listed
+    out = runDispatch({"minigit", "help"}, R, code);
+    CHECK(code == 0);
+    for (const char* form : {"init", "add -v <file>", "remove <file|dir|.>", "ignore -r <pattern>",
+                             "commit -m \"<message>\"", "undo", "redo", "log [--reverse]", "uninstall"})
+        CHECK(out.find(std::string("   ") + form) != std::string::npos);
+    CHECK(runDispatch({"minigit", "--help"}, R, code) == out && code == 0);
+
+    // 13. Per-command help, without running the command
+    out = runDispatch({"minigit", "help", "commit"}, R, code);
+    CHECK(code == 0);
+    CHECK(out.find("usage: minigit commit \"<message>\" | minigit commit -m \"<message>\"") != std::string::npos);
+    out = runDispatch({"minigit", "commit", "--help"}, R, code);
+    CHECK(code == 0 && out.find("usage: minigit commit") != std::string::npos);
+    CHECK(out.find("committed") == std::string::npos);
+    out = runDispatch({"minigit", "help", "nope"}, R, code);
+    CHECK(code == 1 && out.find("is not a minigit command") != std::string::npos);
+
+    // 14. Typos suggest the closest command (edit distance <= 2)
+    out = runDispatch({"minigit", "comit"}, R, code);
+    CHECK(code == 1);
+    CHECK(out.find("The most similar command is\n    commit") != std::string::npos);
+    out = runDispatch({"minigit", "xyzzy"}, R, code);
+    CHECK(out.find("most similar") == std::string::npos);
+
+    // 15. Extra arguments are rejected with the command's usage instead of ignored
+    out = runDispatch({"minigit", "remove", "a.txt", "b.txt"}, R, code);
+    CHECK(code == 1 && out.find("usage: minigit remove <file|dir|.>") != std::string::npos);
+    out = runDispatch({"minigit", "init", "extra"}, R, code);
+    CHECK(code == 1 && out.find("usage: minigit init") != std::string::npos);
+    out = runDispatch({"minigit", "commit", "msg", "extra"}, R, code);
+    CHECK(code == 1 && out.find("usage: minigit commit") != std::string::npos);
+
+    // 16. Long flags without a value are errors, not patterns
+    out = runDispatch({"minigit", "ignore", "--remove"}, R, code);
+    CHECK(code == 1 && out.find("requires a pattern argument") != std::string::npos);
+    out = runDispatch({"minigit", "ignore"}, R, code);
+    CHECK(out.find("--remove") == std::string::npos);
+
+    // 17. The built-in .minigit/ rule has no line in .minigitignore: say so instead of "(line -1)"
+    out = runDispatch({"minigit", "ignore", "-v", ".minigit"}, R, code);
+    CHECK(code == 0 && out.find("is ignored by '.minigit/' (built-in rule)") != std::string::npos);
+    out = runDispatch({"minigit", "add", ".minigit"}, R, code);
+    CHECK(out.find("(built-in rule)") != std::string::npos && out.find("line -1") == std::string::npos);
+
+    // 18. CLI branch management: list, create, checkout
+    out = runDispatch({"minigit", "branch"}, R, code);
+    CHECK(code == 0 && out.find("* main") != std::string::npos);
+
+    // Help for branch
+    out = runDispatch({"minigit", "help", "branch"}, R, code);
+    CHECK(code == 0 && out.find("usage: minigit branch") != std::string::npos);
+
+    // 19. CLI rollback help
+    out = runDispatch({"minigit", "help", "rollback"}, R, code);
+    CHECK(code == 0 && out.find("usage: minigit rollback") != std::string::npos);
+
+    // 20. CLI checkout help
+    out = runDispatch({"minigit", "help", "checkout"}, R, code);
+    CHECK(code == 0 && out.find("usage: minigit checkout") != std::string::npos);
+
+    // 21. Clean up
     fs::remove_all(tempRoot);
     std::cout << "test_cli: all tests passed\n";
     return 0;

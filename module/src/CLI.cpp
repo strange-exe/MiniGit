@@ -1,8 +1,11 @@
 #include "CLI.h"
 
+#include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <vector>
 
 #include "PathUtils.h"
 
@@ -20,6 +23,12 @@ static std::filesystem::path selfExePath() {
     return std::filesystem::read_symlink("/proc/self/exe", ec);
 }
 #endif
+
+// Where an ignore rule comes from: a .minigitignore line, or the built-in
+// .minigit/ rule, which has no line in the file (line number -1).
+static std::string ruleSource(int line) {
+    return line > 0 ? "line " + std::to_string(line) : "built-in rule";
+}
 
 int CLI::printInit(const InitResult& r) {
     if (r.status == InitResult::ERROR) {
@@ -41,20 +50,26 @@ int CLI::printAdd(const AddResult& r, const std::string& p) {
             else std::cout << "'" << p << "' is already staged\n";
             return 0;
         case AddResult::IGNORED:
-            std::cout << "'" << p << "' is ignored by '" << r.message << "' (line " << r.line << ")\n";
+            std::cout << "'" << p << "' is ignored by '" << r.message << "' (" << ruleSource(r.line) << ")\n";
             return 0;
         case AddResult::NOT_FOUND:
             std::cout << "'" << p << "' does not exist\n";
             return 1;
+        case AddResult::DELETION_STAGED:
+            if (r.deletionsStaged > 1) std::cout << "Staged deletion of " << r.deletionsStaged << " files\n";
+            else std::cout << "Staged deletion of '" << p << "'\n";
+            return 0;
         case AddResult::UNSTAGED:
-            if (r.stagedCount > 1) std::cout << "Unstaged " << r.stagedCount << " files\n";
+            if (p == "." || r.stagedCount > 1)
+                std::cout << "Unstaged " << r.stagedCount << (r.stagedCount == 1 ? " file\n" : " files\n");
             else std::cout << "Unstaged '" << p << "'\n";
             return 0;
         case AddResult::NOT_STAGED:
             std::cout << "'" << p << "' is not staged\n";
             return 0;
         case AddResult::IS_STAGED:
-            std::cout << "'" << p << "' is staged\n";
+            if (r.message == "deletion") std::cout << "'" << p << "' is staged for deletion\n";
+            else std::cout << "'" << p << "' is staged\n";
             return 0;
         default:
             std::cout << "error: " << r.message << "\n";
@@ -79,7 +94,7 @@ int CLI::printIgnore(const IgnoreResult& r, const std::string& p) {
             std::cout << "\n";
             return 1;
         case IgnoreResult::IGNORED:
-            std::cout << "'" << p << "' is ignored by '" << r.matchedPattern << "' (line " << r.lineNumber << ")\n";
+            std::cout << "'" << p << "' is ignored by '" << r.matchedPattern << "' (" << ruleSource(r.lineNumber) << ")\n";
             return 0;
         case IgnoreResult::NOT_IGNORED:
             std::cout << "'" << p << "' is not ignored\n";
@@ -101,7 +116,8 @@ int CLI::printCommit(const CommitResult& r) {
     }
     if (!r.commitId.empty()) {
         std::string shortId = r.commitId.size() >= 7 ? r.commitId.substr(0, 7) : r.commitId;
-        std::cout << "[main " << shortId << "] " << r.message << "\n";
+        std::string branch = r.branch.empty() ? "main" : r.branch;
+        std::cout << "[" << branch << " " << shortId << "] " << r.message << "\n";
         if (r.filesCommitted > 0) {
             std::cout << r.filesCommitted << " file(s) committed\n";
         }
@@ -111,22 +127,415 @@ int CLI::printCommit(const CommitResult& r) {
     return 0;
 }
 
+int CLI::printLog(const LogResult& r) {
+    switch (r.status) {
+        case LogResult::OK:
+            for (const LogEntry& e : r.entries) {
+                std::string shortId = e.commitId.size() >= 7 ? e.commitId.substr(0, 7) : e.commitId;
+                std::cout << "commit " << shortId << "\n";
+                if (!e.parentId.empty()) {
+                    std::string shortParent = e.parentId.size() >= 7 ? e.parentId.substr(0, 7) : e.parentId;
+                    std::cout << "parent  " << shortParent << "\n";
+                }
+                std::cout << "date    " << formatTimestamp(e.timestamp) << "\n"
+                          << "\n    " << e.message << "\n"
+                          << "    (" << e.fileCount << " file(s)";
+                if (e.deletedCount > 0) std::cout << ", " << e.deletedCount << " deleted";
+                std::cout << ")\n\n";
+            }
+            if (!r.warning.empty()) std::cerr << "warning: " << r.warning << "\n";
+            return 0;
+        case LogResult::EMPTY:
+            std::cout << "No commits yet\n";
+            return 0;
+        case LogResult::NOT_A_REPO:
+            std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+            return 1;
+        default:
+            std::cout << "fatal: " << (r.errorMessage.empty() ? "could not read commit history" : r.errorMessage)
+                      << "\n";
+            return 1;
+    }
+}
+
+int CLI::printLogGraph(const LogResult& r) {
+    if (r.status == LogResult::NOT_A_REPO) {
+        std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+        return 1;
+    }
+    if (r.status == LogResult::EMPTY) {
+        std::cout << "No commits yet\n";
+        return 0;
+    }
+    if (r.status != LogResult::OK) {
+        std::cout << "fatal: " << (r.errorMessage.empty() ? "could not read commit graph" : r.errorMessage) << "\n";
+        return 1;
+    }
+    std::cout << r.graphOutput;
+    return 0;
+}
+
+int CLI::printBranch(const BranchResult& r) {
+    switch (r.status) {
+        case BranchResult::LIST_SUCCESS:
+            for (const auto& b : r.branches) {
+                if (b.isActive) {
+                    std::cout << "* " << b.name;
+                } else {
+                    std::cout << "  " << b.name;
+                }
+                if (!b.shortId.empty()) {
+                    std::cout << " (" << b.shortId << ")";
+                }
+                std::cout << "\n";
+            }
+            return 0;
+        case BranchResult::CREATE_SUCCESS:
+            std::cout << "Created branch '" << r.branchName << "' at " << r.shortId << "\n";
+            return 0;
+        case BranchResult::DELETE_SUCCESS:
+            std::cout << "Deleted branch '" << r.branchName << "'";
+            if (!r.shortId.empty()) std::cout << " (was " << r.shortId << ")";
+            std::cout << "\n";
+            return 0;
+        case BranchResult::NOT_A_REPO:
+            std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+            return 1;
+        case BranchResult::NO_COMMITS:
+            std::cout << "fatal: cannot create branch: repository has no commits\n";
+            return 1;
+        case BranchResult::ALREADY_EXISTS:
+            if (!r.errorMessage.empty()) std::cout << "fatal: " << r.errorMessage << "\n";
+            else std::cout << "fatal: a branch named '" << r.branchName << "' already exists\n";
+            return 1;
+        case BranchResult::INVALID_NAME:
+            std::cout << "fatal: '" << r.branchName << "' is not a valid branch name\n";
+            return 1;
+        case BranchResult::NOT_FOUND:
+            std::cout << "fatal: branch '" << r.branchName << "' not found\n";
+            return 1;
+        case BranchResult::CANNOT_DELETE_ACTIVE:
+            std::cout << "fatal: cannot delete the currently active branch '" << r.branchName << "'\n";
+            return 1;
+        default:
+            std::cout << "fatal: " << (r.errorMessage.empty() ? "branch operation failed" : r.errorMessage) << "\n";
+            return 1;
+    }
+}
+
+int CLI::printCheckout(const CheckoutResult& r) {
+    switch (r.status) {
+        case CheckoutResult::SUCCESS:
+            std::cout << "Switched to branch '" << r.branchName << "'\n";
+            return 0;
+        case CheckoutResult::ALREADY_ON_BRANCH:
+            std::cout << "Already on '" << r.branchName << "'\n";
+            return 0;
+        case CheckoutResult::NOT_A_REPO:
+            std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+            return 1;
+        case CheckoutResult::NOT_FOUND:
+            std::cout << "fatal: branch '" << r.branchName << "' not found\n";
+            return 1;
+        case CheckoutResult::INVALID_NAME:
+            std::cout << "fatal: '" << r.branchName << "' is not a valid branch name\n";
+            return 1;
+        case CheckoutResult::UNCOMMITTED_CHANGES:
+            std::cout << "fatal: cannot switch branch: " << r.errorMessage << "\n";
+            return 1;
+        default:
+            std::cout << "fatal: " << (r.errorMessage.empty() ? "checkout failed" : r.errorMessage) << "\n";
+            return 1;
+    }
+}
+
+int CLI::printRollback(const RollbackResult& r) {
+    switch (r.status) {
+        case RollbackResult::SUCCESS:
+            std::cout << "Rolled back branch '" << r.branch << "' to commit " << r.shortId
+                      << " (\"" << r.message << "\")\n";
+            return 0;
+        case RollbackResult::NOT_A_REPO:
+            std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+            return 1;
+        case RollbackResult::NO_COMMITS:
+            std::cout << "fatal: cannot rollback: repository has no commits\n";
+            return 1;
+        case RollbackResult::INVALID_COMMIT:
+            if (!r.errorMessage.empty()) std::cout << "fatal: " << r.errorMessage << "\n";
+            else std::cout << "fatal: commit '" << r.commitId << "' does not exist\n";
+            return 1;
+        case RollbackResult::UNCOMMITTED_CHANGES:
+            std::cout << "fatal: cannot rollback: " << r.errorMessage << "\n";
+            return 1;
+        default:
+            std::cout << "fatal: " << (r.errorMessage.empty() ? "rollback failed" : r.errorMessage) << "\n";
+            return 1;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Command table. Each row holds a command's name, aliases, usage forms and
+// handler, so `minigit help`, per-command usage and dispatch are generated from
+// one place and cannot drift apart. A handler returns an exit code, or kUsage
+// when its arguments are wrong (the dispatcher then prints that command's usage).
+// ---------------------------------------------------------------------------
+namespace {
+
+using Args = std::vector<std::string>;
+const int kUsage = -1;
+
+struct Form {
+    const char* syntax;  // e.g. "add -v <file>"
+    const char* description;
+};
+
+struct Command {
+    const char* name;
+    std::vector<std::string> aliases;
+    std::vector<Form> forms;
+    int (*run)(const Args& args, const std::string& root);
+};
+
+bool isFlag(const std::string& s, const char* shortFlag, const char* longFlag) {
+    return s == shortFlag || s == longFlag;
+}
+
+int runInit(const Args& a, const std::string& root) {
+    if (!a.empty()) return kUsage;
+    return CLI::printInit(initRepo(root));
+}
+
+int runAdd(const Args& a, const std::string& root) {
+    if (a.size() == 1) return CLI::printAdd(a[0] == "." ? addAll(root) : addFile(a[0], root), a[0]);
+    if (a.size() == 2 && isFlag(a[0], "-v", "--verify")) return CLI::printAdd(addVerify(a[1], root), a[1]);
+    return kUsage;
+}
+
+int runRemove(const Args& a, const std::string& root) {
+    if (a.size() != 1) return kUsage;
+    return CLI::printAdd(removeFile(a[0], root), a[0]);
+}
+
+int runIgnore(const Args& a, const std::string& root) {
+    std::error_code repoEc;
+    if (!std::filesystem::is_directory(std::filesystem::path(root) / ".minigit", repoEc)) {
+        // `ignore` edits .minigitignore: outside a repository it must not create one.
+        std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+        return 1;
+    }
+    if (a.empty()) {  // list the rules with their line numbers
+        IgnoreManager im(root);
+        const auto& lines = im.lines();
+        if (lines.empty()) std::cout << "No patterns in .minigitignore\n";
+        for (std::size_t i = 0; i < lines.size(); ++i) std::cout << (i + 1) << ": " << lines[i] << "\n";
+        return 0;
+    }
+    bool remove = isFlag(a[0], "-r", "--remove");
+    bool verify = isFlag(a[0], "-v", "--verify");
+    if ((remove || verify) && a.size() == 1) {
+        std::cout << "minigit ignore: option '" << a[0] << "' requires a pattern argument\n";
+        return 1;
+    }
+    if (a.size() != ((remove || verify) ? 2u : 1u)) return kUsage;
+
+    const std::string& pattern = a.back();
+    std::string err;
+    if (!CLI::validateIgnoreInput(pattern, err)) {
+        std::cout << "minigit ignore: " << err << "\n";
+        return 1;
+    }
+    IgnoreResult r = remove ? ignoreRemove(pattern, root) : verify ? ignoreVerify(pattern, root) : ignoreAdd(pattern, root);
+    return CLI::printIgnore(r, pattern);
+}
+
+int runCommit(const Args& a, const std::string& root) {
+    if (a.size() == 1 && a[0] == "undo") return CLI::printCommit(undoCommit(root));
+    if (a.size() == 1 && a[0] == "redo") return CLI::printCommit(redoCommit(root));
+    if (!a.empty() && isFlag(a[0], "-m", "--message")) {
+        if (a.size() == 1) {
+            std::cout << "fatal: option '" << a[0] << "' requires a message argument\n";
+            return 1;
+        }
+        return a.size() == 2 ? CLI::printCommit(commitRepo(a[1], root)) : kUsage;
+    }
+    return a.size() == 1 ? CLI::printCommit(commitRepo(a[0], root)) : kUsage;
+}
+
+int runUndo(const Args& a, const std::string& root) {
+    return a.empty() ? CLI::printCommit(undoCommit(root)) : kUsage;
+}
+
+int runRedo(const Args& a, const std::string& root) {
+    return a.empty() ? CLI::printCommit(redoCommit(root)) : kUsage;
+}
+
+int runLog(const Args& a, const std::string& root) {
+    if (a.empty()) return CLI::printLog(showLog(root, false));
+    if (a.size() == 1 && a[0] == "--reverse") return CLI::printLog(showLog(root, true));
+    bool hasGraph = false;
+    bool hasAll = false;
+    for (const auto& arg : a) {
+        if (arg == "--graph") hasGraph = true;
+        else if (arg == "--all") hasAll = true;
+        else return kUsage;
+    }
+    if (hasGraph) return CLI::printLogGraph(showLogGraph(root, hasAll));
+    return kUsage;
+}
+
+int runBranch(const Args& a, const std::string& root) {
+    if (a.empty()) return CLI::printBranch(listBranches(root));
+    if (a.size() == 1) {
+        if (a[0] == "-d" || a[0] == "--delete") return kUsage;
+        return CLI::printBranch(createBranch(a[0], root));
+    }
+    if (a.size() == 2 && isFlag(a[0], "-d", "--delete")) {
+        return CLI::printBranch(deleteBranch(a[1], root));
+    }
+    return kUsage;
+}
+
+int runCheckout(const Args& a, const std::string& root) {
+    if (a.size() == 1) return CLI::printCheckout(checkoutBranch(a[0], false, root));
+    if (a.size() == 2 && isFlag(a[0], "-f", "--force")) {
+        return CLI::printCheckout(checkoutBranch(a[1], true, root));
+    }
+    if (a.size() == 2 && isFlag(a[1], "-f", "--force")) {
+        return CLI::printCheckout(checkoutBranch(a[0], true, root));
+    }
+    return kUsage;
+}
+
+int runRollback(const Args& a, const std::string& root) {
+    if (a.size() == 1) return CLI::printRollback(rollbackRepo(a[0], false, root));
+    if (a.size() == 2 && isFlag(a[0], "-f", "--force")) {
+        return CLI::printRollback(rollbackRepo(a[1], true, root));
+    }
+    if (a.size() == 2 && isFlag(a[1], "-f", "--force")) {
+        return CLI::printRollback(rollbackRepo(a[0], true, root));
+    }
+    return kUsage;
+}
+
+int runInstall(const Args& a, const std::string&) { return a.empty() ? CLI::install() : kUsage; }
+int runUninstall(const Args& a, const std::string&) { return a.empty() ? CLI::uninstall() : kUsage; }
+int runHelp(const Args& a, const std::string& root);
+
+const std::vector<Command>& commands() {
+    static const std::vector<Command> table = {
+        {"init", {}, {{"init", "Create an empty MiniGit repository or reinitialize an existing one"}}, runInit},
+        {"add", {}, {{"add <file|dir>", "Stage a file, or every non-ignored file in a directory"},
+                     {"add .", "Stage every non-ignored file in the repository"},
+                     {"add -v <file>", "Show whether a file is staged"}}, runAdd},
+        {"remove", {"rm"}, {{"remove <file|dir|.>", "Unstage files (files on disk are never touched)"}}, runRemove},
+        {"ignore", {}, {{"ignore", "List the rules in .minigitignore with line numbers"},
+                        {"ignore <pattern>", "Add a rule to .minigitignore"},
+                        {"ignore -r <pattern>", "Remove a rule from .minigitignore"},
+                        {"ignore -v <path>", "Show whether a path is ignored, and by which line"}}, runIgnore},
+        {"commit", {}, {{"commit \"<message>\"", "Record the staged files as a new commit"},
+                        {"commit -m \"<message>\"", "Same, with an explicit -m flag"},
+                        {"commit undo", "Undo the last commit and restore its staged files"},
+                        {"commit redo", "Redo the last undone commit"}}, runCommit},
+        {"undo", {}, {{"undo", "Shortcut for 'commit undo'"}}, runUndo},
+        {"redo", {}, {{"redo", "Shortcut for 'commit redo'"}}, runRedo},
+        {"rollback", {}, {{"rollback <commit-id>", "Roll back active branch to a historical commit"},
+                          {"rollback <commit-id> --force", "Roll back overriding uncommitted changes"}}, runRollback},
+        {"branch", {}, {{"branch", "List all branches (* indicates active branch)"},
+                        {"branch <branch-name>", "Create a new branch pointing to current commit"},
+                        {"branch -d <branch-name>", "Delete a branch"}}, runBranch},
+        {"checkout", {}, {{"checkout <branch-name>", "Switch to another branch and restore its files"},
+                          {"checkout <branch-name> --force", "Switch, discarding uncommitted changes"}}, runCheckout},
+        {"log", {}, {{"log [--reverse]", "Show commit history, newest first (oldest first with --reverse)"},
+                     {"log --all --graph", "Display commit graph and branch divergence"}}, runLog},
+        {"install", {"--install"}, {{"install", "Copy MiniGit into a folder on your PATH"}}, runInstall},
+        {"uninstall", {"--uninstall"}, {{"uninstall", "Remove the installed copy from your PATH"}}, runUninstall},
+        {"help", {"--help", "-h"}, {{"help [<command>]", "Show this list, or the usage of one command"}}, runHelp},
+    };
+    return table;
+}
+
+const Command* findCommand(const std::string& name) {
+    for (const Command& c : commands()) {
+        if (name == c.name) return &c;
+        for (const std::string& alias : c.aliases)
+            if (name == alias) return &c;
+    }
+    return nullptr;
+}
+
+void printCommandUsage(const Command& c) {
+    std::cout << "usage:";
+    for (std::size_t i = 0; i < c.forms.size(); ++i) std::cout << (i ? " | " : " ") << "minigit " << c.forms[i].syntax;
+    std::cout << "\n";
+}
+
+void printForms(const Command& c, std::size_t width) {
+    for (const Form& f : c.forms) {
+        std::string syntax = f.syntax;
+        std::cout << "   " << syntax << std::string(width + 2 - syntax.size(), ' ') << f.description << "\n";
+    }
+}
+
+int runHelp(const Args& a, const std::string&) {
+    if (a.empty()) {
+        CLI::printUsage();
+        return 0;
+    }
+    if (a.size() != 1) return kUsage;
+    const Command* c = findCommand(a[0]);
+    if (!c) {
+        std::cout << "minigit help: '" << a[0] << "' is not a minigit command\n";
+        return 1;
+    }
+    printCommandUsage(*c);
+    std::cout << "\n";
+    std::size_t width = 0;
+    for (const Form& f : c->forms) width = std::max(width, std::strlen(f.syntax));
+    printForms(*c, width);
+    return 0;
+}
+
+// Levenshtein edit distance with two rolling rows: O(|a|*|b|) time, O(|b|) space.
+std::size_t editDistance(const std::string& a, const std::string& b) {
+    std::vector<std::size_t> prev(b.size() + 1), cur(b.size() + 1);
+    for (std::size_t j = 0; j <= b.size(); ++j) prev[j] = j;
+    for (std::size_t i = 1; i <= a.size(); ++i) {
+        cur[0] = i;
+        for (std::size_t j = 1; j <= b.size(); ++j) {
+            std::size_t substitute = prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1);
+            cur[j] = std::min({prev[j] + 1, cur[j - 1] + 1, substitute});
+        }
+        std::swap(prev, cur);
+    }
+    return prev[b.size()];
+}
+
+// Closest command for a typo ("comit" -> "commit"); "" when nothing is within 2 edits.
+std::string suggestCommand(const std::string& typo) {
+    std::string best;
+    std::size_t bestDistance = 3;
+    for (const Command& c : commands()) {
+        std::size_t d = editDistance(typo, c.name);
+        if (d < bestDistance) {
+            bestDistance = d;
+            best = c.name;
+        }
+    }
+    return best;
+}
+
+}  // namespace
+
 void CLI::printUsage() {
+    std::size_t width = 0;
+    for (const Command& c : commands())
+        for (const Form& f : c.forms) width = std::max(width, std::strlen(f.syntax));
+
     std::cout << "usage: minigit <command> [<args>]\n\n"
-              << "These are common MiniGit commands:\n"
-              << "   init                 Create an empty MiniGit repository or reinitialize an existing one\n"
-              << "   add <file|dir>       Add file contents to the staging area index\n"
-              << "   add .                Add all tracked/unignored repository files to index\n"
-              << "   add -v <file>        Verify if file is staged in index\n"
-              << "   remove <file|dir|.>  Remove files from the staging area index\n"
-              << "   ignore <pattern>     Add a pattern to .minigitignore\n"
-              << "   ignore -r <pattern>  Remove a pattern from .minigitignore\n"
-              << "   ignore -v <path>     Verify whether a path is ignored and show line number\n"
-              << "   commit \"<message>\"   Record staged changes to commit history\n"
-              << "   commit undo          Undo the last commit / staging state\n"
-              << "   commit redo          Redo the previously undone commit / staging state\n"
-              << "   install              Install MiniGit globally into system PATH\n"
-              << "   uninstall            Uninstall MiniGit from system PATH\n";
+              << "These are common MiniGit commands:\n";
+    for (const Command& c : commands()) printForms(c, width);
+    std::cout << "\nSee 'minigit help <command>' for the usage of one command.\n";
 }
 
 bool CLI::validateIgnoreInput(const std::string& pattern, std::string& err) {
@@ -308,136 +717,26 @@ int CLI::dispatch(int argc, char** argv, const std::string& root) {
         return 1;
     }
 
-    std::string cmd = argv[1];
+    std::string name = argv[1];
+    Args args(argv + 2, argv + argc);
 
-    if (cmd == "init") {
-        InitResult r = initRepo(root);
-        return printInit(r);
-    }
-
-    if (cmd == "install" || cmd == "--install") {
-        return install();
-    }
-
-    if (cmd == "uninstall" || cmd == "--uninstall") {
-        return uninstall();
-    }
-
-    if (cmd == "add") {
-        if (argc < 3) {
-            std::cout << "usage: minigit add <file|dir> | minigit add . | minigit add -v <file>\n";
-            return 1;
-        }
-        if (argc == 4 && (std::string(argv[2]) == "-v" || std::string(argv[2]) == "--verify")) {
-            std::string path = argv[3];
-            AddResult r = addVerify(path, root);
-            return printAdd(r, path);
-        }
-        if (argc == 3) {
-            std::string path = argv[2];
-            if (path == ".") {
-                AddResult r = addAll(root);
-                return printAdd(r, path);
-            } else {
-                AddResult r = addFile(path, root);
-                return printAdd(r, path);
-            }
-        }
-        std::cout << "usage: minigit add <file|dir> | minigit add . | minigit add -v <file>\n";
+    const Command* c = findCommand(name);
+    if (!c) {
+        std::cout << "minigit: '" << name << "' is not a minigit command. See 'minigit --help'.\n";
+        std::string guess = suggestCommand(name);
+        if (!guess.empty()) std::cout << "\nThe most similar command is\n    " << guess << "\n";
         return 1;
-    } else if (cmd == "remove" || cmd == "rm") {
-        if (argc < 3) {
-            std::cout << "usage: minigit remove <file|dir|.>\n";
-            return 1;
-        }
-        std::string path = argv[2];
-        AddResult r = removeFile(path, root);
-        return printAdd(r, path);
-    } else if (cmd == "ignore") {
-        if (argc == 2) {
-            IgnoreManager im(root);
-            const auto& lines = im.lines();
-            if (lines.empty()) {
-                std::cout << "No patterns in .minigitignore\n";
-            } else {
-                for (std::size_t i = 0; i < lines.size(); ++i) {
-                    std::cout << (i + 1) << ": " << lines[i] << "\n";
-                }
-            }
-            return 0;
-        }
-        if (argc == 4 && (std::string(argv[2]) == "-r" || std::string(argv[2]) == "--remove")) {
-            std::string pattern = argv[3];
-            std::string err;
-            if (!validateIgnoreInput(pattern, err)) {
-                std::cout << "minigit ignore: " << err << "\n";
-                return 1;
-            }
-            IgnoreResult r = ignoreRemove(pattern, root);
-            return printIgnore(r, pattern);
-        }
-        if (argc == 4 && (std::string(argv[2]) == "-v" || std::string(argv[2]) == "--verify")) {
-            std::string pattern = argv[3];
-            std::string err;
-            if (!validateIgnoreInput(pattern, err)) {
-                std::cout << "minigit ignore: " << err << "\n";
-                return 1;
-            }
-            IgnoreResult r = ignoreVerify(pattern, root);
-            return printIgnore(r, pattern);
-        }
-        if (argc == 3) {
-            std::string pattern = argv[2];
-            if (pattern == "-r" || pattern == "-v") {
-                std::cout << "minigit ignore: option '" << pattern << "' requires a pattern argument\n";
-                return 1;
-            }
-            std::string err;
-            if (!validateIgnoreInput(pattern, err)) {
-                std::cout << "minigit ignore: " << err << "\n";
-                return 1;
-            }
-            IgnoreResult r = ignoreAdd(pattern, root);
-            return printIgnore(r, pattern);
-        }
-        std::cout << "usage: minigit ignore [<pattern> | -r <pattern> | -v <path>]\n";
-        return 1;
-    } else if (cmd == "commit") {
-        if (argc < 3) {
-            std::cout << "usage: minigit commit \"<message>\" | minigit commit -m \"<message>\" | minigit commit undo | minigit commit redo\n";
-            return 1;
-        }
-        std::string arg2 = argv[2];
-        if (arg2 == "undo") {
-            CommitResult r = undoCommit(root);
-            return printCommit(r);
-        } else if (arg2 == "redo") {
-            CommitResult r = redoCommit(root);
-            return printCommit(r);
-        } else if (arg2 == "-m" || arg2 == "--message") {
-            if (argc < 4) {
-                std::cout << "fatal: option '-m' requires a message argument\n";
-                return 1;
-            }
-            CommitResult r = commitRepo(argv[3], root);
-            return printCommit(r);
-        } else {
-            CommitResult r = commitRepo(arg2, root);
-            return printCommit(r);
-        }
-    } else if (cmd == "undo") {
-        CommitResult r = undoCommit(root);
-        return printCommit(r);
-    } else if (cmd == "redo") {
-        CommitResult r = redoCommit(root);
-        return printCommit(r);
-    } else if (cmd == "help" || cmd == "--help" || cmd == "-h") {
-        printUsage();
+    }
+    if (args.size() == 1 && (args[0] == "--help" || args[0] == "-h")) {  // minigit <command> --help
+        printCommandUsage(*c);
         return 0;
     }
-
-    std::cout << "minigit: '" << cmd << "' is not a minigit command. See 'minigit --help'.\n";
-    return 1;
+    int rc = c->run(args, root);
+    if (rc == kUsage) {
+        printCommandUsage(*c);
+        return 1;
+    }
+    return rc;
 }
 
 int dispatch(int argc, char** argv, const std::string& root) {

@@ -48,4 +48,14 @@ inline bool isOutsideRepo(const std::string& norm) {
     return false;
 }
 
+// A path read from a repository file (index, commit metadata) must stay inside
+// the working tree: never absolute, never "..", never inside .minigit itself.
+inline bool isSafeRepoPath(const std::string& p) {
+    if (p.empty()) return false;
+    std::string n = normalizePath(p);
+    if (n.empty() || n == "." || isOutsideRepo(n)) return false;
+    if (n == ".minigit" || n.rfind(".minigit/", 0) == 0) return false;
+    return true;
+}
+
 }  // namespace minigit

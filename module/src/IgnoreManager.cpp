@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 
+#include "FileUtils.h"
 #include "PathUtils.h"
 
 namespace fs = std::filesystem;
@@ -37,10 +38,22 @@ bool IgnoreManager::load() {
 }
 
 bool IgnoreManager::saveFile() const {
-    std::ofstream out(ignoreFilePath(), std::ios::trunc);
-    if (!out) return false;
-    for (const auto& l : lines_) out << l << '\n';
-    return static_cast<bool>(out);
+    std::string text;
+    for (const auto& l : lines_) text += l + '\n';
+    return writeFileAtomic(ignoreFilePath(), text);  // a failed write keeps the old rules intact
+}
+
+// Why a pattern that parseRule() would otherwise store as a plain file name can never work
+// as typed. Only "*.ext", file paths and "dir/" rules exist, so "a/*.txt" or "!keep.txt"
+// would be stored but silently match nothing: better to refuse them with a clear message.
+static std::string unsupportedPatternReason(const std::string& raw) {
+    std::string t = trim(raw);
+    if (t.empty() || t[0] == '#') return "";
+    if (t[0] == '!') return "negation ('!') is not supported";
+    bool extRule = t.size() > 2 && t[0] == '*' && t[1] == '.' && t.find_first_of("*/\\", 2) == std::string::npos;
+    if (!extRule && t.find_first_of("*?[") != std::string::npos)
+        return "wildcards are only supported as '*.ext' (e.g. '*.log'); use a file path or a 'dir/' rule";
+    return "";
 }
 
 IgnoreManager::ParsedRule IgnoreManager::parseRule(const std::string& raw) const {
@@ -91,6 +104,11 @@ bool IgnoreManager::lookup(const ParsedRule& r, Trie::Match& m) const {
 
 IgnoreResult IgnoreManager::addPattern(const std::string& raw) {
     IgnoreResult res;
+    std::string unsupported = unsupportedPatternReason(raw);
+    if (!unsupported.empty()) {
+        res.message = "unsupported pattern '" + raw + "': " + unsupported;
+        return res;
+    }
     ParsedRule rule = parseRule(raw);
     if (rule.kind == ParsedRule::NONE) {
         res.message = "invalid pattern '" + raw + "'";
