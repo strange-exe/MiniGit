@@ -55,15 +55,21 @@ int CLI::printAdd(const AddResult& r, const std::string& p) {
         case AddResult::NOT_FOUND:
             std::cout << "'" << p << "' does not exist\n";
             return 1;
+        case AddResult::DELETION_STAGED:
+            if (r.deletionsStaged > 1) std::cout << "Staged deletion of " << r.deletionsStaged << " files\n";
+            else std::cout << "Staged deletion of '" << p << "'\n";
+            return 0;
         case AddResult::UNSTAGED:
-            if (r.stagedCount > 1) std::cout << "Unstaged " << r.stagedCount << " files\n";
+            if (p == "." || r.stagedCount > 1)
+                std::cout << "Unstaged " << r.stagedCount << (r.stagedCount == 1 ? " file\n" : " files\n");
             else std::cout << "Unstaged '" << p << "'\n";
             return 0;
         case AddResult::NOT_STAGED:
             std::cout << "'" << p << "' is not staged\n";
             return 0;
         case AddResult::IS_STAGED:
-            std::cout << "'" << p << "' is staged\n";
+            if (r.message == "deletion") std::cout << "'" << p << "' is staged for deletion\n";
+            else std::cout << "'" << p << "' is staged\n";
             return 0;
         default:
             std::cout << "error: " << r.message << "\n";
@@ -110,7 +116,8 @@ int CLI::printCommit(const CommitResult& r) {
     }
     if (!r.commitId.empty()) {
         std::string shortId = r.commitId.size() >= 7 ? r.commitId.substr(0, 7) : r.commitId;
-        std::cout << "[main " << shortId << "] " << r.message << "\n";
+        std::string branch = r.branch.empty() ? "main" : r.branch;
+        std::cout << "[" << branch << " " << shortId << "] " << r.message << "\n";
         if (r.filesCommitted > 0) {
             std::cout << r.filesCommitted << " file(s) committed\n";
         }
@@ -132,8 +139,11 @@ int CLI::printLog(const LogResult& r) {
                 }
                 std::cout << "date    " << formatTimestamp(e.timestamp) << "\n"
                           << "\n    " << e.message << "\n"
-                          << "    (" << e.fileCount << " file(s))\n\n";
+                          << "    (" << e.fileCount << " file(s)";
+                if (e.deletedCount > 0) std::cout << ", " << e.deletedCount << " deleted";
+                std::cout << ")\n\n";
             }
+            if (!r.warning.empty()) std::cerr << "warning: " << r.warning << "\n";
             return 0;
         case LogResult::EMPTY:
             std::cout << "No commits yet\n";
@@ -144,6 +154,122 @@ int CLI::printLog(const LogResult& r) {
         default:
             std::cout << "fatal: " << (r.errorMessage.empty() ? "could not read commit history" : r.errorMessage)
                       << "\n";
+            return 1;
+    }
+}
+
+int CLI::printLogGraph(const LogResult& r) {
+    if (r.status == LogResult::NOT_A_REPO) {
+        std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+        return 1;
+    }
+    if (r.status == LogResult::EMPTY) {
+        std::cout << "No commits yet\n";
+        return 0;
+    }
+    if (r.status != LogResult::OK) {
+        std::cout << "fatal: " << (r.errorMessage.empty() ? "could not read commit graph" : r.errorMessage) << "\n";
+        return 1;
+    }
+    std::cout << r.graphOutput;
+    return 0;
+}
+
+int CLI::printBranch(const BranchResult& r) {
+    switch (r.status) {
+        case BranchResult::LIST_SUCCESS:
+            for (const auto& b : r.branches) {
+                if (b.isActive) {
+                    std::cout << "* " << b.name;
+                } else {
+                    std::cout << "  " << b.name;
+                }
+                if (!b.shortId.empty()) {
+                    std::cout << " (" << b.shortId << ")";
+                }
+                std::cout << "\n";
+            }
+            return 0;
+        case BranchResult::CREATE_SUCCESS:
+            std::cout << "Created branch '" << r.branchName << "' at " << r.shortId << "\n";
+            return 0;
+        case BranchResult::DELETE_SUCCESS:
+            std::cout << "Deleted branch '" << r.branchName << "'";
+            if (!r.shortId.empty()) std::cout << " (was " << r.shortId << ")";
+            std::cout << "\n";
+            return 0;
+        case BranchResult::NOT_A_REPO:
+            std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+            return 1;
+        case BranchResult::NO_COMMITS:
+            std::cout << "fatal: cannot create branch: repository has no commits\n";
+            return 1;
+        case BranchResult::ALREADY_EXISTS:
+            if (!r.errorMessage.empty()) std::cout << "fatal: " << r.errorMessage << "\n";
+            else std::cout << "fatal: a branch named '" << r.branchName << "' already exists\n";
+            return 1;
+        case BranchResult::INVALID_NAME:
+            std::cout << "fatal: '" << r.branchName << "' is not a valid branch name\n";
+            return 1;
+        case BranchResult::NOT_FOUND:
+            std::cout << "fatal: branch '" << r.branchName << "' not found\n";
+            return 1;
+        case BranchResult::CANNOT_DELETE_ACTIVE:
+            std::cout << "fatal: cannot delete the currently active branch '" << r.branchName << "'\n";
+            return 1;
+        default:
+            std::cout << "fatal: " << (r.errorMessage.empty() ? "branch operation failed" : r.errorMessage) << "\n";
+            return 1;
+    }
+}
+
+int CLI::printCheckout(const CheckoutResult& r) {
+    switch (r.status) {
+        case CheckoutResult::SUCCESS:
+            std::cout << "Switched to branch '" << r.branchName << "'\n";
+            return 0;
+        case CheckoutResult::ALREADY_ON_BRANCH:
+            std::cout << "Already on '" << r.branchName << "'\n";
+            return 0;
+        case CheckoutResult::NOT_A_REPO:
+            std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+            return 1;
+        case CheckoutResult::NOT_FOUND:
+            std::cout << "fatal: branch '" << r.branchName << "' not found\n";
+            return 1;
+        case CheckoutResult::INVALID_NAME:
+            std::cout << "fatal: '" << r.branchName << "' is not a valid branch name\n";
+            return 1;
+        case CheckoutResult::UNCOMMITTED_CHANGES:
+            std::cout << "fatal: cannot switch branch: " << r.errorMessage << "\n";
+            return 1;
+        default:
+            std::cout << "fatal: " << (r.errorMessage.empty() ? "checkout failed" : r.errorMessage) << "\n";
+            return 1;
+    }
+}
+
+int CLI::printRollback(const RollbackResult& r) {
+    switch (r.status) {
+        case RollbackResult::SUCCESS:
+            std::cout << "Rolled back branch '" << r.branch << "' to commit " << r.shortId
+                      << " (\"" << r.message << "\")\n";
+            return 0;
+        case RollbackResult::NOT_A_REPO:
+            std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+            return 1;
+        case RollbackResult::NO_COMMITS:
+            std::cout << "fatal: cannot rollback: repository has no commits\n";
+            return 1;
+        case RollbackResult::INVALID_COMMIT:
+            if (!r.errorMessage.empty()) std::cout << "fatal: " << r.errorMessage << "\n";
+            else std::cout << "fatal: commit '" << r.commitId << "' does not exist\n";
+            return 1;
+        case RollbackResult::UNCOMMITTED_CHANGES:
+            std::cout << "fatal: cannot rollback: " << r.errorMessage << "\n";
+            return 1;
+        default:
+            std::cout << "fatal: " << (r.errorMessage.empty() ? "rollback failed" : r.errorMessage) << "\n";
             return 1;
     }
 }
@@ -192,6 +318,12 @@ int runRemove(const Args& a, const std::string& root) {
 }
 
 int runIgnore(const Args& a, const std::string& root) {
+    std::error_code repoEc;
+    if (!std::filesystem::is_directory(std::filesystem::path(root) / ".minigit", repoEc)) {
+        // `ignore` edits .minigitignore: outside a repository it must not create one.
+        std::cout << "fatal: not a minigit repository (run 'minigit init')\n";
+        return 1;
+    }
     if (a.empty()) {  // list the rules with their line numbers
         IgnoreManager im(root);
         const auto& lines = im.lines();
@@ -241,6 +373,48 @@ int runRedo(const Args& a, const std::string& root) {
 int runLog(const Args& a, const std::string& root) {
     if (a.empty()) return CLI::printLog(showLog(root, false));
     if (a.size() == 1 && a[0] == "--reverse") return CLI::printLog(showLog(root, true));
+    bool hasGraph = false;
+    bool hasAll = false;
+    for (const auto& arg : a) {
+        if (arg == "--graph") hasGraph = true;
+        else if (arg == "--all") hasAll = true;
+        else return kUsage;
+    }
+    if (hasGraph) return CLI::printLogGraph(showLogGraph(root, hasAll));
+    return kUsage;
+}
+
+int runBranch(const Args& a, const std::string& root) {
+    if (a.empty()) return CLI::printBranch(listBranches(root));
+    if (a.size() == 1) {
+        if (a[0] == "-d" || a[0] == "--delete") return kUsage;
+        return CLI::printBranch(createBranch(a[0], root));
+    }
+    if (a.size() == 2 && isFlag(a[0], "-d", "--delete")) {
+        return CLI::printBranch(deleteBranch(a[1], root));
+    }
+    return kUsage;
+}
+
+int runCheckout(const Args& a, const std::string& root) {
+    if (a.size() == 1) return CLI::printCheckout(checkoutBranch(a[0], false, root));
+    if (a.size() == 2 && isFlag(a[0], "-f", "--force")) {
+        return CLI::printCheckout(checkoutBranch(a[1], true, root));
+    }
+    if (a.size() == 2 && isFlag(a[1], "-f", "--force")) {
+        return CLI::printCheckout(checkoutBranch(a[0], true, root));
+    }
+    return kUsage;
+}
+
+int runRollback(const Args& a, const std::string& root) {
+    if (a.size() == 1) return CLI::printRollback(rollbackRepo(a[0], false, root));
+    if (a.size() == 2 && isFlag(a[0], "-f", "--force")) {
+        return CLI::printRollback(rollbackRepo(a[1], true, root));
+    }
+    if (a.size() == 2 && isFlag(a[1], "-f", "--force")) {
+        return CLI::printRollback(rollbackRepo(a[0], true, root));
+    }
     return kUsage;
 }
 
@@ -265,7 +439,15 @@ const std::vector<Command>& commands() {
                         {"commit redo", "Redo the last undone commit"}}, runCommit},
         {"undo", {}, {{"undo", "Shortcut for 'commit undo'"}}, runUndo},
         {"redo", {}, {{"redo", "Shortcut for 'commit redo'"}}, runRedo},
-        {"log", {}, {{"log [--reverse]", "Show commit history, newest first (oldest first with --reverse)"}}, runLog},
+        {"rollback", {}, {{"rollback <commit-id>", "Roll back active branch to a historical commit"},
+                          {"rollback <commit-id> --force", "Roll back overriding uncommitted changes"}}, runRollback},
+        {"branch", {}, {{"branch", "List all branches (* indicates active branch)"},
+                        {"branch <branch-name>", "Create a new branch pointing to current commit"},
+                        {"branch -d <branch-name>", "Delete a branch"}}, runBranch},
+        {"checkout", {}, {{"checkout <branch-name>", "Switch to another branch and restore its files"},
+                          {"checkout <branch-name> --force", "Switch, discarding uncommitted changes"}}, runCheckout},
+        {"log", {}, {{"log [--reverse]", "Show commit history, newest first (oldest first with --reverse)"},
+                     {"log --all --graph", "Display commit graph and branch divergence"}}, runLog},
         {"install", {"--install"}, {{"install", "Copy MiniGit into a folder on your PATH"}}, runInstall},
         {"uninstall", {"--uninstall"}, {{"uninstall", "Remove the installed copy from your PATH"}}, runUninstall},
         {"help", {"--help", "-h"}, {{"help [<command>]", "Show this list, or the usage of one command"}}, runHelp},

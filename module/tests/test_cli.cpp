@@ -205,7 +205,23 @@ int main() {
     out = runDispatch({"minigit", "add", ".minigit"}, R, code);
     CHECK(out.find("(built-in rule)") != std::string::npos && out.find("line -1") == std::string::npos);
 
-    // 18. Clean up
+    // 18. CLI branch management: list, create, checkout
+    out = runDispatch({"minigit", "branch"}, R, code);
+    CHECK(code == 0 && out.find("* main") != std::string::npos);
+
+    // Help for branch
+    out = runDispatch({"minigit", "help", "branch"}, R, code);
+    CHECK(code == 0 && out.find("usage: minigit branch") != std::string::npos);
+
+    // 19. CLI rollback help
+    out = runDispatch({"minigit", "help", "rollback"}, R, code);
+    CHECK(code == 0 && out.find("usage: minigit rollback") != std::string::npos);
+
+    // 20. CLI checkout help
+    out = runDispatch({"minigit", "help", "checkout"}, R, code);
+    CHECK(code == 0 && out.find("usage: minigit checkout") != std::string::npos);
+
+    // 21. Clean up
     fs::remove_all(tempRoot);
     std::cout << "test_cli: all tests passed\n";
     return 0;

@@ -22,7 +22,7 @@ static bool ensureDirectory(const fs::path& dir) {
 static bool ensureFile(const fs::path& file, const std::string& content) {
     std::error_code ec;
     if (fs::exists(file, ec)) return true;
-    std::ofstream out(file.string());
+    std::ofstream out(file.string(), std::ios::binary);  // "\n" stays "\n" on Windows, like every other writer
     out << content;
     out.close();
     return static_cast<bool>(out);

@@ -6,16 +6,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include "RepoUtils.h"
+
 namespace fs = std::filesystem;
 
 namespace minigit {
-
-static std::string trim(const std::string& s) {
-    std::size_t a = s.find_first_not_of(" \t\r\n");
-    if (a == std::string::npos) return "";
-    std::size_t b = s.find_last_not_of(" \t\r\n");
-    return s.substr(a, b - a + 1);
-}
 
 CommitLog::CommitLog(const std::string& rootDir) : root_(rootDir) {}
 
@@ -32,76 +27,55 @@ void CommitLog::clear() {
     size_ = 0;
 }
 
-// Mirrors CommitCommand's getHEADCommitId(): HEAD holds either "ref: <path>"
-// (read the commit id from that ref file) or a raw commit id directly.
-static std::string readHeadCommitId(const std::string& root) {
-    fs::path headFile = fs::path(root) / ".minigit" / "HEAD";
-    std::ifstream in(headFile.string());
-    if (!in) return "";
-    std::string line;
-    std::getline(in, line);
-    line = trim(line);
-    if (line.rfind("ref:", 0) == 0) {
-        fs::path refPath = fs::path(root) / ".minigit" / trim(line.substr(4));
-        std::ifstream refIn(refPath.string());
-        if (!refIn) return "";
-        std::string id;
-        std::getline(refIn, id);
-        return trim(id);
-    }
-    return line;
-}
-
-// Parses .minigit/objects/<id>/metadata. Returns false if the file is missing
-// or malformed (a corrupt or hand-edited repo should not crash `log`).
-static bool readCommitMetadata(const std::string& root, const std::string& id, CommitNode& out) {
-    fs::path metaPath = fs::path(root) / ".minigit" / "objects" / id / "metadata";
-    std::ifstream in(metaPath.string());
-    if (!in) return false;
-
+// Reads one commit through the shared, validating parser (RepoUtils.h). A missing,
+// truncated or tampered metadata file makes it return false instead of an empty commit.
+static bool readCommitNode(const std::string& root, const std::string& id, CommitNode& out) {
+    CommitMetadata meta;
+    if (!readCommitMeta(root, id, meta)) return false;
     out.id = id;
-    out.parentId.clear();
-    out.message.clear();
-    out.timestamp.clear();
-    out.files.clear();
-
-    std::string line;
-    int filesToRead = 0;
-    while (std::getline(in, line)) {
-        if (!line.empty() && line.back() == '\r') line.pop_back();
-        if (line.rfind("parent ", 0) == 0) {
-            std::string p = line.substr(7);
-            out.parentId = (p == "none") ? "" : p;
-        } else if (line.rfind("timestamp ", 0) == 0) {
-            out.timestamp = line.substr(10);
-        } else if (line.rfind("message ", 0) == 0) {
-            out.message = line.substr(8);
-        } else if (line.rfind("files ", 0) == 0) {
-            filesToRead = std::atoi(line.substr(6).c_str());
-        } else if (line.rfind("commit ", 0) == 0) {
-            // already known from the folder name; nothing to do
-        } else if (filesToRead > 0 && static_cast<int>(out.files.size()) < filesToRead) {
-            out.files.push_back(line);
-        }
-    }
+    out.parentId = meta.parentId;
+    out.message = meta.message;
+    out.timestamp = meta.timestamp;
+    out.files = meta.files;
+    out.deleted = meta.deleted;
     return true;
 }
 
 bool CommitLog::load() {
     clear();
+    error_.clear();
+    warning_.clear();
     std::error_code ec;
-    if (!fs::is_directory(fs::path(root_) / ".minigit", ec)) return false;
+    if (!fs::is_directory(fs::path(root_) / ".minigit", ec)) {
+        error_ = "not a minigit repository (run 'minigit init')";
+        return false;
+    }
 
-    std::string headId = readHeadCommitId(root_);
-    if (headId.empty()) return true;  // repo exists, nothing committed yet
+    HeadState head = readHeadState(root_);
+    if (!head.valid) {
+        error_ = head.error;
+        return false;
+    }
+    if (head.commitId.empty()) return true;  // repo exists, nothing committed yet
 
     std::vector<CommitNode> newestToOldest;
     std::unordered_set<std::string> visited;  // guards against a corrupt parent cycle
-    std::string cur = headId;
-    while (!cur.empty() && visited.find(cur) == visited.end()) {
-        visited.insert(cur);
+    std::string cur = head.commitId;
+    while (!cur.empty()) {
+        if (!visited.insert(cur).second) {
+            warning_ = "history is incomplete: the parent chain loops back to commit '" + cur + "'";
+            break;
+        }
         CommitNode node;
-        if (!readCommitMetadata(root_, cur, node)) break;  // stop at first unreadable commit
+        if (!readCommitNode(root_, cur, node)) {
+            std::string what = "commit '" + cur + "' is missing or damaged";
+            if (newestToOldest.empty()) {  // the branch tip itself: nothing at all can be shown
+                error_ = "branch '" + head.branch + "' points to " + what;
+                return false;
+            }
+            warning_ = "history is incomplete: " + what + "; older commits are not shown";
+            break;
+        }
         std::string parent = node.parentId;
         newestToOldest.push_back(std::move(node));
         cur = parent;

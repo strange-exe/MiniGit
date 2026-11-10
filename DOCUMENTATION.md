@@ -19,8 +19,11 @@
 3. [Core Data Structures](#3-core-data-structures)
    - [3.1 Trie (Prefix Tree) for Ignored Files](#31-trie-prefix-tree-for-ignored-files)
    - [3.2 Staging Index (`.minigit/index`)](#32-staging-index-minigitindex)
+   - [3.3 Directed Acyclic Graph (DAG) for Commits and Branches](#33-directed-acyclic-graph-dag-for-commits-and-branches)
 4. [Command Reference & Usage Examples](#4-command-reference--usage-examples)
-5. [Compilation, Portability & Testing](#5-compilation-portability--testing)
+5. [Rollback Architecture & Semantics](#5-rollback-architecture--semantics)
+6. [DAG-Based Branch Management](#6-dag-based-branch-management)
+7. [Compilation, Portability & Testing](#7-compilation-portability--testing)
 
 ---
 
@@ -148,6 +151,17 @@ To solve PowerShell's restriction requiring `.\` for current-directory binaries:
 - **Disk Format:** Plain text file `.minigit/index` holding one path per line.
 - **In-Memory Cache:** `std::set<std::string>` (red-black tree) enforces sorted order and provides $O(\log n)$ duplicate staging prevention.
 
+### 3.3 Directed Acyclic Graph (DAG) for Commits and Branches
+- **Header:** `include/CommitGraph.h`
+- **Source:** `src/CommitGraph.cpp`
+- **Class:** `minigit::CommitGraph`
+- **Conceptual Model:** Commits form a Directed Acyclic Graph (DAG) where nodes represent individual commits and directed edges connect each commit to its parent(s). Branches are named references (stored in `.minigit/refs/heads/<branch>`) pointing to tip commit IDs rather than physical repository copies.
+- **Data Structures Applied:**
+  - `std::unordered_map<std::string, CommitGraphNode>`: $O(1)$ vertex lookup and adjacency storage.
+  - Cycle detection using 3-color Depth First Search (DFS): guarantees the graph is strictly acyclic ($O(V + E)$).
+  - Topological sorting via Kahn's in-degree reduction algorithm with priority queue: linearizes commits such that children always precede ancestors, ensuring deterministic traversal for ASCII graph visualization.
+  - Reachability traversal via Breadth First Search (BFS) with `std::unordered_set<std::string>` visited set: prevents duplicate traversal when branches share common ancestors.
+
 ---
 
 ## 4. Command Reference & Usage Examples
@@ -240,7 +254,70 @@ usage: minigit ignore | minigit ignore <pattern> | minigit ignore -r <pattern> |
 
 ---
 
-## 5. Compilation, Portability & Testing
+## 5. Rollback Architecture & Semantics
+
+### 5.1 Rollback Semantics & Operation Distinction
+MiniGit implements a reset-style rollback operation (`minigit rollback <commit-id> [--force]`).
+
+It is crucial to understand the architectural distinction between **Rollback**, **Undo/Redo**, and **Revert**:
+
+| Dimension | `rollback <commit-id>` | `commit undo` / `redo` | `revert` (Git-style) |
+|---|---|---|---|
+| **Mechanism** | Reset-style pointer movement | Deque history stack manipulation | Inverse patch creation |
+| **Branch Target** | Any reachable historical commit ID or prefix | Exactly one step backward/forward | Appends a brand-new commit |
+| **Object Preservation** | All commit objects remain stored | Commits remain stored | All commits remain stored |
+| **Subsequent Commits** | New commits branch off target commit | Subsequent undo deque is re-cleared | Extends linear branch forward |
+| **Working Tree** | Restored to exact snapshot of target commit | Index restored, working tree preserved | Working tree modified with inverse diff |
+| **Data Safety** | Rejects uncommitted/staged changes unless `--force` | Stack-based state restoration | Conflict detection |
+
+### 5.2 Atomic Snapshot Restoration
+When rolling back active branch from commit $D$ to historical commit $B$:
+1. **Safety Verification:** MiniGit inspects the staging index (`.minigit/index`) and compares working tree tracked files against $D$'s snapshot. If uncommitted modifications or staged changes are detected without `--force`, the operation aborts immediately.
+2. **Post-Target File Cleanup:** All tracked files introduced after target commit $B$ (e.g. introduced in $C$ or $D$) are removed from the working tree.
+3. **Exact Snapshot Copy:** Every tracked file present at commit $B$ is restored from `.minigit/objects/<commit-B>/snapshot/` into the working tree.
+4. **Reference Update:** The active branch reference file (`.minigit/refs/heads/<active_branch>`) is atomically updated to point to commit $B$'s ID. `HEAD` remains pointed to the active branch.
+5. **Continuous History:** Any subsequent `minigit commit` uses commit $B$'s ID as its parent, establishing a new diverging line of history.
+
+---
+
+## 6. DAG-Based Branch Management
+
+### 6.1 Conceptual Model & Reference Architecture
+In MiniGit's DAG branching architecture:
+- Commits are immutable nodes with unique 40-character SHA-1 identifiers.
+- Directed edges point from each child commit to its parent commit(s).
+- Branches are lightweight named references stored under `.minigit/refs/heads/<branch-name>`.
+- `.minigit/HEAD` stores a symbolic reference (e.g. `ref: refs/heads/main`) identifying the current active branch.
+- Branches share common ancestors without duplicating commit snapshots or metadata.
+
+```
+       [c1] Initial commit (Common Ancestor)
+       /  \
+     /      \
+   [c2]    [c3] Divergent feature work
+    |       |
+  (main)  (feature)
+```
+
+### 6.2 Supported Branch Operations
+1. **List Branches:** `minigit branch`
+   - Scans `.minigit/refs/heads/`.
+   - Distinguishes the active branch with an asterisk (`* main`) and prints the short 7-character commit ID.
+2. **Create Branch:** `minigit branch <branch-name>`
+   - Validates branch name against POSIX/Git rules (no control chars, spaces, `..`, prefixes `-`).
+   - Writes the current HEAD commit ID to `.minigit/refs/heads/<branch-name>` without duplicating commit objects.
+3. **Switch Branch:** `minigit checkout <branch-name> [--force]`
+   - Protects local uncommitted modifications and staged changes from being overwritten.
+   - Reconciles working-tree files: removes files not tracked in the destination branch, and restores destination branch files from snapshot.
+   - Updates `.minigit/HEAD` to point to `refs/heads/<branch-name>`.
+4. **Delete Branch:** `minigit branch -d <branch-name>`
+   - Validates existence and protects against deleting the currently active branch.
+5. **DAG ASCII Visualization:** `minigit log --all --graph`
+   - Builds `CommitGraph` across all branches, performs cycle verification, sorts nodes topologically, and renders a visual ASCII DAG indicating branch tips and merge/fork points.
+
+---
+
+## 7. Compilation, Portability & Testing
 
 ### 100% Standalone Executable
 `minigit.exe` is compiled with `-static` (`-static-libgcc -static-libstdc++`):
@@ -255,7 +332,10 @@ make test
 - `test_trie`: Verifies Trie prefix search, reversed extension matching, and node pruning.
 - `test_add`: Verifies staging, duplicate prevention, and `.minigitignore` enforcement.
 - `test_init`: Verifies repository initialization, directory structure, and `HEAD` metadata.
-- `test_cli`: Verifies argument parsing, dispatcher calls, generated help, typo suggestions, rejected extra arguments, and the `IS_STAGED` print case.
+- `test_cli`: Verifies argument parsing, dispatcher calls, generated help, typo suggestions, rejected extra arguments, and `IS_STAGED`.
 - `test_commit`: Verifies commits, snapshots, undo/redo (including the undo → redo → undo round trip) and multi-line messages.
 - `test_commitlog`: Verifies the doubly linked list on its own.
 - `test_log`: Verifies `log` / `log --reverse` over real commits and through the CLI.
+- `test_rollback`: Verifies reset-style rollback, exact snapshot restoration, post-target file deletion, object preservation, parent pointer continuity, staged and dirty-tree safety checks.
+- `test_branch`: Verifies branch listing, creation, switching, deletion, active-branch protection, and snapshot reconciliation across branches.
+- `test_dag`: Verifies 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.

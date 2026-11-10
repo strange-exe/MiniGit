@@ -16,6 +16,11 @@ struct HistoryEntry {
     std::vector<std::string> stagedFiles;  // Snapshot of staged files in index
     std::string message;                   // Commit message if applicable
     std::string timestamp;                 // ISO/Unix timestamp string
+    // Guard against undoing/redoing on the wrong branch or after HEAD moved some other way
+    // (checkout, rollback): the entry may only be applied on `branch` while that branch is
+    // at `expectedHead`. Empty = entry written by an older version, validated by parentage.
+    std::string branch;
+    std::string expectedHead;
 };
 
 class CommitHistory {

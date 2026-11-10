@@ -58,9 +58,13 @@ MiniGit follows a modular 5-layer architecture:
 ### Krish — Commit & Undo/Redo Module
 - **`minigit commit`**: Saves each staged file's content under `.minigit/objects/<id>/snapshot/`, writes `metadata` (parent, timestamp, author, message, files) and moves `HEAD`. The commit id is a SHA-1 of that content.
 - **Undo / Redo (`std::deque`)**: Two deques of repository states. A new commit clears the redo deque; the undo deque is capped at 20 entries with `pop_front()`. Persisted in `.minigit/history`.
+- **Reset-Style Rollback (`minigit rollback <commit-id>`)**: Rolls back the currently active branch to any historical commit and restores its exact working-tree snapshot while preserving all subsequent commit objects.
 
-### Snehil — Commit Log Module
-- **`minigit log`**: Rebuilds the history from `HEAD` by following parent links into a **doubly linked list**, then walks it backward (newest first) or forward with `--reverse`.
+### Snehil & Architecture Extensions — Commit Log, DAG & Branching
+- **`minigit log`**: Walks history from `HEAD` backward (newest first) or forward with `--reverse`.
+- **DAG Commit Graph (`CommitGraph`)**: Models commits as vertices, directed edges from children to parents, and branch references as named pointers to commit nodes. Supports shared ancestors, independent diverging histories, and cycle detection.
+- **Branch Management (`minigit branch`, `minigit checkout`)**: Lightweight branching via references stored in `.minigit/refs/heads/`. Fast context switching with working directory snapshot reconciliation and uncommitted change protection.
+- **Graph Visualization (`minigit log --all --graph`)**: Renders full repository commit history and branch divergence in an ASCII DAG tree.
 
 ---
 
@@ -82,6 +86,12 @@ Used for instant, deterministic pattern matching to block ignored files from sta
 ### 4. Doubly Linked List — commit log
 - Each `CommitNode` links to the older and newer commit, so `log` and `log --reverse` are both a single $O(n)$ walk from one end of the list.
 
+### 5. Directed Acyclic Graph (DAG) & Adjacency List — Branching & Commit Graph
+- `CommitGraph` models commits as vertices stored in an adjacency list using `std::unordered_map<std::string, CommitGraphNode>`.
+- Directed edges maintain parent-child relationships across diverging branches and common ancestors.
+- Cycle detection is performed via 3-color DFS to guarantee DAG properties.
+- Topological sorting (Kahn's algorithm) orders commits so that children precede parents, enabling ASCII rendering (`log --all --graph`).
+
 ---
 
 ## 💻 Supported Commands & Usage
@@ -101,7 +111,13 @@ Used for instant, deterministic pattern matching to block ignored files from sta
 | `minigit commit "<message>"` / `commit -m "<message>"` | `commitRepo(message)` | Records the staged files as a new commit and clears the index |
 | `minigit commit undo` / `undo` | `undoCommit()` | Moves `HEAD` back one commit and restores its staged files |
 | `minigit commit redo` / `redo` | `redoCommit()` | Re-applies the last undone commit |
-| `minigit log [--reverse]` | `showLog(reverse)` | Shows the commit history, newest first (oldest first with `--reverse`) |
+| `minigit rollback <commit-id> [--force]` | `rollbackRepo(id, force)` | Reset-style rollback: moves active branch to target commit, restores exact snapshot, preserves subsequent commits |
+| `minigit branch` | `listBranches()` | Lists all branches (* indicates active branch, with tip commit IDs) |
+| `minigit branch <branch-name>` | `createBranch(name)` | Creates a new branch pointing to current HEAD commit without duplicating objects |
+| `minigit branch -d <branch-name>` | `deleteBranch(name)` | Deletes a branch reference (active branch cannot be deleted) |
+| `minigit checkout <branch-name> [--force]` | `checkoutBranch(name, force)` | Switches active branch, updates HEAD, and restores tracked files from snapshot |
+| `minigit log [--reverse]` | `showLog(reverse)` | Shows commit history of active branch, newest first (oldest first with `--reverse`) |
+| `minigit log --all --graph` | `showLogGraph(all)` | Displays ASCII commit DAG showing branches and diverging histories |
 | `minigit help [<command>]` | command table | Lists every command, or the usage of one (`minigit <command> --help` also works) |
 | `minigit install` | `CLI::install()` | Manually copies `minigit` into the user's `PATH` |
 | `minigit uninstall` | `CLI::uninstall()` | Removes `minigit` from user `PATH` |
@@ -135,6 +151,9 @@ Test coverage includes:
 - `test_commit`: Commit ids and metadata, snapshots, undo/redo and the history limit, multi-line messages.
 - `test_commitlog`: The doubly linked list on its own (insert, find, cursor movement).
 - `test_log`: `log` / `log --reverse` over real commits, after undo, and through the CLI.
+- `test_rollback`: Reset-style rollback, file snapshot restoration, post-target file cleanup, object preservation, parent pointer continuity, staged and dirty-tree safety checks.
+- `test_branch`: Branch listing, creation, switching, deletion, active-branch protection, and snapshot reconciliation across branches.
+- `test_dag`: 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
 
 ### Cleaning Build Files
 ```bash
@@ -174,28 +193,35 @@ MiniGit-CLI/
     ├── Makefile             # Module compilation and test runners
     ├── include/             # Header declarations
     │   ├── AddCommand.h     # add / add . / add -v / remove interface
+    │   ├── BranchCommand.h  # branch / checkout interface
     │   ├── CLI.h            # CLI parser, dispatcher, and status mapper
     │   ├── CommitCommand.h  # commit / undo / redo interface
+    │   ├── CommitGraph.h    # DAG commit graph architecture
     │   ├── CommitHistory.h  # Undo/redo deques (.minigit/history)
     │   ├── CommitLog.h      # Doubly linked list over commits
     │   ├── CommitNode.h     # One commit (list node)
     │   ├── IgnoreManager.h  # .minigitignore parser & Trie bridge
     │   ├── InitCommand.h    # initRepo interface
-    │   ├── LogCommand.h     # log / log --reverse interface
+    │   ├── LogCommand.h     # log / log --reverse / log --all --graph interface
     │   ├── PathUtils.h      # Path normalization & safety utilities
+    │   ├── RepoUtils.h      # Shared repository, snapshot, and ref utilities
+    │   ├── RollbackCommand.h # Dedicated reset-style rollback interface
     │   ├── StagingArea.h    # .minigit/index persistence manager
     │   ├── Trie.h           # Pure Prefix Tree data structure
     │   ├── filesystem       # Cross-compiler filesystem wrapper
     │   └── ghc/             # Header-only standard filesystem implementation
     ├── src/                 # Implementation files
     │   ├── AddCommand.cpp
+    │   ├── BranchCommand.cpp # Branch creation, deletion, and switching
     │   ├── CLI.cpp          # Command table, dispatcher and output
     │   ├── CommitCommand.cpp
+    │   ├── CommitGraph.cpp  # DAG traversal, cycle detection, topological sort, ASCII graph
     │   ├── CommitHistory.cpp
     │   ├── CommitLog.cpp
     │   ├── IgnoreManager.cpp
     │   ├── InitCommand.cpp
     │   ├── LogCommand.cpp
+    │   ├── RollbackCommand.cpp # Rollback logic and file snapshot restoration
     │   ├── StagingArea.cpp
     │   ├── Trie.cpp
     │   ├── main.cpp         # Production CLI entry point
@@ -203,11 +229,14 @@ MiniGit-CLI/
     │   └── main_demo_log.cpp  # Standalone demo interface (log)
     └── tests/               # Automated unit tests
         ├── test_add.cpp
+        ├── test_branch.cpp  # Branch management and switching tests
         ├── test_cli.cpp
         ├── test_commit.cpp
         ├── test_commitlog.cpp
+        ├── test_dag.cpp     # DAG structure, shared ancestors, cycle detection
         ├── test_init.cpp
         ├── test_log.cpp
+        ├── test_rollback.cpp # Rollback verification across scenarios
         └── test_trie.cpp
 ```
 

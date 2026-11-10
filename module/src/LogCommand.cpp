@@ -7,7 +7,9 @@
 #include <filesystem>
 #include <sstream>
 
+#include "CommitGraph.h"
 #include "CommitLog.h"
+#include "RepoUtils.h"
 
 namespace fs = std::filesystem;
 
@@ -41,6 +43,7 @@ static LogEntry toEntry(const CommitNode* n) {
     e.message = n->message;
     e.timestamp = n->timestamp;
     e.fileCount = static_cast<int>(n->files.size());
+    e.deletedCount = static_cast<int>(n->deleted.size());
     return e;
 }
 
@@ -56,9 +59,10 @@ LogResult showLog(const std::string& root, bool reverse) {
     CommitLog log(root);
     if (!log.load()) {
         res.status = LogResult::ERROR;
-        res.errorMessage = "could not read commit history";
+        res.errorMessage = log.error().empty() ? "could not read commit history" : log.error();
         return res;
     }
+    res.warning = log.warning();
     if (log.empty()) {
         res.status = LogResult::EMPTY;
         res.errorMessage = "no commits yet";
@@ -82,6 +86,40 @@ LogResult showLog(const std::string& root, bool reverse) {
     }
 
     res.status = LogResult::OK;
+    return res;
+}
+
+LogResult showLogGraph(const std::string& root, bool all) {
+    (void)all;
+    LogResult res;
+    std::error_code ec;
+    if (!fs::is_directory(fs::path(root) / ".minigit", ec)) {
+        res.status = LogResult::NOT_A_REPO;
+        res.errorMessage = "not a minigit repository (or any of the parent directories)";
+        return res;
+    }
+
+    HeadState head = readHeadState(root);
+    if (!head.valid) {
+        res.status = LogResult::ERROR;
+        res.errorMessage = head.error;
+        return res;
+    }
+
+    CommitGraph graph(root);
+    if (!graph.build()) {
+        res.status = LogResult::ERROR;
+        res.errorMessage = "could not read commit history";
+        return res;
+    }
+    if (graph.empty()) {
+        res.status = LogResult::EMPTY;
+        res.errorMessage = "no commits yet";
+        return res;
+    }
+
+    res.status = LogResult::OK;
+    res.graphOutput = graph.renderGraph();
     return res;
 }
 

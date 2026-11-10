@@ -12,6 +12,7 @@ struct CommitNode {
     std::string message;
     std::string timestamp;  // unix time, as a string (matches CommitCommand's format)
     std::vector<std::string> files;
+    std::vector<std::string> deleted;  // tracked files this commit removed
 
     CommitNode* prev = nullptr;  // older commit
     CommitNode* next = nullptr;  // newer commit

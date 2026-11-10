@@ -3,10 +3,12 @@
 #include <string>
 
 #include "AddCommand.h"
+#include "BranchCommand.h"
 #include "CommitCommand.h"
 #include "IgnoreManager.h"
 #include "InitCommand.h"
 #include "LogCommand.h"
+#include "RollbackCommand.h"
 
 namespace minigit {
 
@@ -26,6 +28,10 @@ public:
     static int printIgnore(const IgnoreResult& r, const std::string& p);
     static int printCommit(const CommitResult& r);
     static int printLog(const LogResult& r);
+    static int printLogGraph(const LogResult& r);
+    static int printBranch(const BranchResult& r);
+    static int printCheckout(const CheckoutResult& r);
+    static int printRollback(const RollbackResult& r);
 
     // Helpers
     static void printUsage();

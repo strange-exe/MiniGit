@@ -26,6 +26,11 @@ public:
     // no commits yet returns true with size() == 0.
     bool load();
 
+    // After load(): why it returned false, and a note when the history it did read is
+    // incomplete (a parent commit is missing/damaged or the parents form a cycle).
+    const std::string& error() const { return error_; }
+    const std::string& warning() const { return warning_; }
+
     // Appends a new commit as the newest node. Used directly by unit tests
     // that exercise the data structure without touching disk; showLog()
     // normally relies on load() instead.
@@ -51,6 +56,8 @@ private:
     void clear();
 
     std::string root_;
+    std::string error_;
+    std::string warning_;
     CommitNode* head_ = nullptr;
     CommitNode* tail_ = nullptr;
     CommitNode* cursor_ = nullptr;

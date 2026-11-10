@@ -14,12 +14,15 @@ struct LogEntry {
     std::string message;
     std::string timestamp;  // unix time, as stored by commitRepo
     int fileCount = 0;
+    int deletedCount = 0;   // tracked files this commit removed
 };
 
 struct LogResult {
     enum Status { OK, EMPTY, NOT_A_REPO, ERROR } status = ERROR;
     std::vector<LogEntry> entries;  // see `reverse` below for ordering
     std::string errorMessage;
+    std::string warning;            // set when the history shown is incomplete (damaged repository)
+    std::string graphOutput;        // ASCII DAG graph for --graph
 };
 
 // reverse=false (default): newest commit first, like `git log`.
@@ -27,6 +30,9 @@ struct LogResult {
 // Internally walks CommitLog's cursor with next()/prev(), so both directions
 // exercise the doubly linked list rather than a plain array copy.
 LogResult showLog(const std::string& root = ".", bool reverse = false);
+
+// Displays DAG commit graph across branches
+LogResult showLogGraph(const std::string& root = ".", bool all = true);
 
 // Formats a unix-timestamp string (as stored in commit metadata) into
 // "YYYY-MM-DD HH:MM:SS" (local time). Returns the input unchanged if it
