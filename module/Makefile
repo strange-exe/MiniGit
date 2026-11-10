@@ -1,7 +1,7 @@
 CXX      := g++
 CXXFLAGS := -std=c++14 -Wall -Wextra -Iinclude
 LDFLAGS  := -static
-LIB_SRC  := src/Trie.cpp src/IgnoreManager.cpp src/StagingArea.cpp src/AddCommand.cpp src/InitCommand.cpp src/CommitHistory.cpp src/CommitCommand.cpp src/CommitLog.cpp src/LogCommand.cpp src/BranchCommand.cpp src/RollbackCommand.cpp src/CommitGraph.cpp src/CLI.cpp
+LIB_SRC  := src/Trie.cpp src/IgnoreManager.cpp src/StagingArea.cpp src/AddCommand.cpp src/InitCommand.cpp src/CommitHistory.cpp src/CommitCommand.cpp src/CommitLog.cpp src/LogCommand.cpp src/BranchCommand.cpp src/RollbackCommand.cpp src/RestoreCommand.cpp src/CommitGraph.cpp src/CLI.cpp
 
 all: minigit
 
@@ -41,6 +41,9 @@ test_rollback: tests/test_rollback.cpp $(LIB_SRC)
 test_branch: tests/test_branch.cpp $(LIB_SRC)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
+test_checkout: tests/test_checkout.cpp $(LIB_SRC)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
 test_dag: tests/test_dag.cpp $(LIB_SRC)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
@@ -50,7 +53,7 @@ test_regression: tests/test_regression.cpp $(LIB_SRC)
 test_integration: tests/test_integration.cpp $(LIB_SRC)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-TESTS := test_trie test_add test_init test_cli test_commit test_commitlog test_log test_rollback test_branch test_dag test_regression test_integration
+TESTS := test_trie test_add test_init test_cli test_commit test_commitlog test_log test_rollback test_branch test_checkout test_dag test_regression test_integration
 
 test: $(TESTS)
 	./test_trie
@@ -62,6 +65,7 @@ test: $(TESTS)
 	./test_log
 	./test_rollback
 	./test_branch
+	./test_checkout
 	./test_dag
 	./test_regression
 	./test_integration

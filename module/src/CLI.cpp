@@ -178,6 +178,7 @@ int CLI::printLogGraph(const LogResult& r) {
 int CLI::printBranch(const BranchResult& r) {
     switch (r.status) {
         case BranchResult::LIST_SUCCESS:
+            if (!r.detachedAt.empty()) std::cout << "* (HEAD detached at " << r.detachedAt.substr(0, 7) << ")\n";
             for (const auto& b : r.branches) {
                 if (b.isActive) {
                     std::cout << "* " << b.name;
@@ -247,6 +248,19 @@ int CLI::printCheckout(const CheckoutResult& r) {
             std::cout << "fatal: " << (r.errorMessage.empty() ? "checkout failed" : r.errorMessage) << "\n";
             return 1;
     }
+}
+
+int CLI::printRestore(const RestoreResult& r) {
+    if (r.status == RestoreResult::SUCCESS) {
+        std::cout << "HEAD is now at " << r.commitId.substr(0, 7) << " " << r.message << "\n"
+                  << r.filesRestored << " file(s) restored, " << r.filesRemoved << " removed";
+        if (r.filesSkippedIgnored > 0) std::cout << ", " << r.filesSkippedIgnored << " ignored file(s) left alone";
+        std::cout << "\n(detached HEAD: no branch moved; 'minigit checkout <branch>' goes back)\n";
+        return 0;
+    }
+    std::cout << "fatal: " << (r.errorMessage.empty() ? "checkout failed" : r.errorMessage) << "\n";
+    for (const auto& f : r.blockingFiles) std::cout << "  " << f << "\n";
+    return 1;
 }
 
 int CLI::printRollback(const RollbackResult& r) {
@@ -396,15 +410,34 @@ int runBranch(const Args& a, const std::string& root) {
     return kUsage;
 }
 
+// 'checkout X': an existing branch named X wins; otherwise X of 4-40 hex digits is a
+// commit id, restored with HEAD detached (Snehil's restore, which never discards work,
+// so it takes no --force).
+static bool looksLikeCommitId(const std::string& s) {
+    return s.size() >= 4 && s.size() <= 40 &&
+           std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isxdigit(c) != 0; });
+}
+
 int runCheckout(const Args& a, const std::string& root) {
-    if (a.size() == 1) return CLI::printCheckout(checkoutBranch(a[0], false, root));
-    if (a.size() == 2 && isFlag(a[0], "-f", "--force")) {
-        return CLI::printCheckout(checkoutBranch(a[1], true, root));
+    std::string target;
+    bool force = false;
+    if (a.size() == 1) {
+        target = a[0];
+    } else if (a.size() == 2 && isFlag(a[0], "-f", "--force")) {
+        target = a[1], force = true;
+    } else if (a.size() == 2 && isFlag(a[1], "-f", "--force")) {
+        target = a[0], force = true;
+    } else {
+        return kUsage;
     }
-    if (a.size() == 2 && isFlag(a[1], "-f", "--force")) {
-        return CLI::printCheckout(checkoutBranch(a[0], true, root));
+    std::error_code ec;
+    bool isBranch = isValidBranchName(target) &&
+                    std::filesystem::is_regular_file(std::filesystem::path(root) / ".minigit" / "refs" / "heads" / target, ec);
+    if (!isBranch && looksLikeCommitId(target)) {
+        if (force) return kUsage;
+        return CLI::printRestore(checkoutCommit(target, root));
     }
-    return kUsage;
+    return CLI::printCheckout(checkoutBranch(target, force, root));
 }
 
 int runRollback(const Args& a, const std::string& root) {
@@ -445,7 +478,8 @@ const std::vector<Command>& commands() {
                         {"branch <branch-name>", "Create a new branch pointing to current commit"},
                         {"branch -d <branch-name>", "Delete a branch"}}, runBranch},
         {"checkout", {}, {{"checkout <branch-name>", "Switch to another branch and restore its files"},
-                          {"checkout <branch-name> --force", "Switch, discarding uncommitted changes"}}, runCheckout},
+                          {"checkout <branch-name> --force", "Switch, discarding uncommitted changes"},
+                          {"checkout <commit-id>", "Restore the files of a saved commit (HEAD becomes detached)"}}, runCheckout},
         {"log", {}, {{"log [--reverse]", "Show commit history, newest first (oldest first with --reverse)"},
                      {"log --all --graph", "Display commit graph and branch divergence"}}, runLog},
         {"install", {"--install"}, {{"install", "Copy MiniGit into a folder on your PATH"}}, runInstall},

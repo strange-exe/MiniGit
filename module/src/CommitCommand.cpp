@@ -138,6 +138,10 @@ static bool checkHeadUsable(const std::string& root, HeadState& head, std::strin
         error = head.error;
         return false;
     }
+    if (head.detached) {  // a commit here would belong to no branch and could be lost
+        error = detachedHeadError(head);
+        return false;
+    }
     if (!head.commitId.empty()) {
         CommitMetadata tip;
         if (!readCommitMeta(root, head.commitId, tip)) {

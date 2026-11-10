@@ -30,6 +30,11 @@ RollbackResult rollbackRepo(const std::string& commitId, bool force, const std::
         r.errorMessage = head.error;
         return r;
     }
+    if (head.detached) {  // rollback moves the active branch, and there is none
+        r.status = RollbackResult::ERROR;
+        r.errorMessage = detachedHeadError(head);
+        return r;
+    }
 
     const std::string currentCommitId = head.commitId;
     if (currentCommitId.empty()) {

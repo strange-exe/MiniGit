@@ -133,7 +133,9 @@ BranchResult listBranches(const std::string& root) {
     }
 
     // In a fresh repository before any commit, refs/heads/ may be empty but HEAD points to main
-    if (!foundCurrent) {
+    if (head.detached) {
+        r.detachedAt = head.commitId;  // no branch is active
+    } else if (!foundCurrent) {
         BranchInfo info;
         info.name = currBranch;
         info.isActive = true;

@@ -8,6 +8,7 @@
 #include "IgnoreManager.h"
 #include "InitCommand.h"
 #include "LogCommand.h"
+#include "RestoreCommand.h"
 #include "RollbackCommand.h"
 
 namespace minigit {
@@ -31,6 +32,7 @@ public:
     static int printLogGraph(const LogResult& r);
     static int printBranch(const BranchResult& r);
     static int printCheckout(const CheckoutResult& r);
+    static int printRestore(const RestoreResult& r);
     static int printRollback(const RollbackResult& r);
 
     // Helpers

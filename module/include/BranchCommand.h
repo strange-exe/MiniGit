@@ -29,6 +29,7 @@ struct BranchResult {
 
     Status status = ERROR;
     std::vector<BranchInfo> branches;
+    std::string detachedAt;  // LIST_SUCCESS: commit HEAD is detached at, "" when on a branch
     std::string branchName;
     std::string commitId;
     std::string shortId;

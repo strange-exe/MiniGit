@@ -130,14 +130,30 @@ inline bool isSafeHeadRef(const std::string& ref) {
 
 struct HeadState {
     bool valid = false;
-    std::string branch;    // active branch name
-    std::string commitId;  // tip of the active branch, "" if it has no commits yet
-    std::string error;     // why `valid` is false
+    bool detached = false;  // HEAD holds a commit id ('checkout <commit-id>'), not a branch
+    std::string branch;     // active branch name, "" when detached
+    std::string commitId;   // tip of the active branch (or the detached commit), "" if no commits yet
+    std::string error;      // why `valid` is false
 };
 
-// Reads .minigit/HEAD and the branch tip it points to. MiniGit only ever writes
-// "ref: refs/heads/<branch>", so a missing or different HEAD means the repository
-// is damaged and commands must stop instead of guessing.
+// A full 40-character lowercase hex commit id.
+inline bool isFullCommitId(const std::string& s) {
+    return s.size() == 40 && std::all_of(s.begin(), s.end(), [](unsigned char c) {
+               return std::isdigit(c) || (c >= 'a' && c <= 'f');
+           });
+}
+
+// The message every branch-moving command gives while HEAD is detached.
+inline std::string detachedHeadError(const HeadState& h) {
+    return "HEAD is detached at " + h.commitId.substr(0, 7) +
+           " (an old commit is checked out); run 'minigit checkout <branch>' to go back, or "
+           "'minigit branch <name>' and 'minigit checkout <name>' to continue from here";
+}
+
+// Reads .minigit/HEAD and the branch tip it points to. MiniGit writes either
+// "ref: refs/heads/<branch>" or, after 'checkout <commit-id>', the full id of an existing
+// commit (detached HEAD). Anything else means the repository is damaged and commands
+// must stop instead of guessing.
 inline HeadState readHeadState(const std::string& root) {
     namespace fs = std::filesystem;
     HeadState h;
@@ -149,8 +165,19 @@ inline HeadState readHeadState(const std::string& root) {
     std::string line;
     std::getline(in, line);
     line = trim(line);
+    if (isFullCommitId(line)) {
+        std::error_code ec;
+        if (!fs::is_regular_file(fs::path(root) / ".minigit" / "objects" / line / "metadata", ec)) {
+            h.error = ".minigit/HEAD is detached at commit '" + line + "', which is missing (repository is damaged)";
+            return h;
+        }
+        h.detached = true;
+        h.commitId = line;
+        h.valid = true;
+        return h;
+    }
     if (line.rfind("ref:", 0) != 0 || !isSafeHeadRef(trim(line.substr(4)))) {
-        h.error = ".minigit/HEAD is damaged (expected 'ref: refs/heads/<branch>')";
+        h.error = ".minigit/HEAD is damaged (expected 'ref: refs/heads/<branch>' or a commit id)";
         return h;
     }
     std::string ref = trim(line.substr(4));
@@ -220,7 +247,7 @@ inline std::string getHEADCommitId(const std::string& root) {
 inline bool setHEADCommitId(const std::string& root, const std::string& commitId) {
     namespace fs = std::filesystem;
     HeadState h = readHeadState(root);
-    if (!h.valid) return false;
+    if (!h.valid || h.detached) return false;  // no branch to move
     fs::path refPath = fs::path(root) / ".minigit" / "refs" / "heads" / h.branch;
     std::error_code ec;
     fs::create_directories(refPath.parent_path(), ec);

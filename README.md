@@ -60,11 +60,14 @@ MiniGit follows a modular 5-layer architecture:
 - **Undo / Redo (`std::deque`)**: Two deques of repository states. A new commit clears the redo deque; the undo deque is capped at 20 entries with `pop_front()`. Persisted in `.minigit/history`.
 - **Reset-Style Rollback (`minigit rollback <commit-id>`)**: Rolls back the currently active branch to any historical commit and restores its exact working-tree snapshot while preserving all subsequent commit objects.
 
-### Snehil & Architecture Extensions — Commit Log, DAG & Branching
-- **`minigit log`**: Walks history from `HEAD` backward (newest first) or forward with `--reverse`.
 - **DAG Commit Graph (`CommitGraph`)**: Models commits as vertices, directed edges from children to parents, and branch references as named pointers to commit nodes. Supports shared ancestors, independent diverging histories, and cycle detection.
-- **Branch Management (`minigit branch`, `minigit checkout`)**: Lightweight branching via references stored in `.minigit/refs/heads/`. Fast context switching with working directory snapshot reconciliation and uncommitted change protection.
+- **Branch Management (`minigit branch`, `minigit checkout <branch>`)**: Lightweight branching via references stored in `.minigit/refs/heads/`. Fast context switching with working directory snapshot reconciliation and uncommitted change protection.
 - **Graph Visualization (`minigit log --all --graph`)**: Renders full repository commit history and branch divergence in an ASCII DAG tree.
+
+### Snehil — Commit Log & Checkout Module
+- **`minigit log`**: Rebuilds the history from `HEAD` by following parent links into a **doubly linked list**, then walks it backward (newest first) or forward with `--reverse`.
+- **`minigit checkout <commit-id>`**: Restores the files of any saved commit (full id or a unique prefix of 4+ characters) and leaves `HEAD` detached at it, so no branch moves. Unsaved work (staged, edited or deleted tracked files, untracked files in the way) is checked first and makes it refuse without changing anything. Files are written to temporary copies first and swapped in with backups, so a failure part-way rolls everything back. Ignored files are never touched.
+- **Detached HEAD**: `log`, `branch` and `checkout <branch>` work there. `commit`, `undo`, `redo` and `rollback` refuse, because they move a branch; `minigit branch <name>` then `minigit checkout <name>` continues from that commit.
 
 ---
 
@@ -116,6 +119,7 @@ Used for instant, deterministic pattern matching to block ignored files from sta
 | `minigit branch <branch-name>` | `createBranch(name)` | Creates a new branch pointing to current HEAD commit without duplicating objects |
 | `minigit branch -d <branch-name>` | `deleteBranch(name)` | Deletes a branch reference (active branch cannot be deleted) |
 | `minigit checkout <branch-name> [--force]` | `checkoutBranch(name, force)` | Switches active branch, updates HEAD, and restores tracked files from snapshot |
+| `minigit checkout <commit-id>` | `checkoutCommit(id)` | Restores a saved commit's files and detaches HEAD at it (an existing branch of the same name wins) |
 | `minigit log [--reverse]` | `showLog(reverse)` | Shows commit history of active branch, newest first (oldest first with `--reverse`) |
 | `minigit log --all --graph` | `showLogGraph(all)` | Displays ASCII commit DAG showing branches and diverging histories |
 | `minigit help [<command>]` | command table | Lists every command, or the usage of one (`minigit <command> --help` also works) |
@@ -153,6 +157,7 @@ Test coverage includes:
 - `test_log`: `log` / `log --reverse` over real commits, after undo, and through the CLI.
 - `test_rollback`: Reset-style rollback, file snapshot restoration, post-target file cleanup, object preservation, parent pointer continuity, staged and dirty-tree safety checks.
 - `test_branch`: Branch listing, creation, switching, deletion, active-branch protection, and snapshot reconciliation across branches.
+- `test_checkout`: `checkout <commit-id>`: exact restore, unsaved-work refusal, ignored files untouched, deletions honoured, detached-HEAD rules, damaged or unsafe commits rejected without changes.
 - `test_dag`: 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
 
 ### Cleaning Build Files
@@ -205,6 +210,7 @@ MiniGit-CLI/
     │   ├── LogCommand.h     # log / log --reverse / log --all --graph interface
     │   ├── PathUtils.h      # Path normalization & safety utilities
     │   ├── RepoUtils.h      # Shared repository, snapshot, and ref utilities
+    │   ├── RestoreCommand.h # checkout <commit-id> interface
     │   ├── RollbackCommand.h # Dedicated reset-style rollback interface
     │   ├── StagingArea.h    # .minigit/index persistence manager
     │   ├── Trie.h           # Pure Prefix Tree data structure
@@ -221,6 +227,7 @@ MiniGit-CLI/
     │   ├── IgnoreManager.cpp
     │   ├── InitCommand.cpp
     │   ├── LogCommand.cpp
+    │   ├── RestoreCommand.cpp # checkout <commit-id>: transactional restore, detached HEAD
     │   ├── RollbackCommand.cpp # Rollback logic and file snapshot restoration
     │   ├── StagingArea.cpp
     │   ├── Trie.cpp
@@ -230,6 +237,7 @@ MiniGit-CLI/
     └── tests/               # Automated unit tests
         ├── test_add.cpp
         ├── test_branch.cpp  # Branch management and switching tests
+        ├── test_checkout.cpp # checkout <commit-id> and detached HEAD tests
         ├── test_cli.cpp
         ├── test_commit.cpp
         ├── test_commitlog.cpp
