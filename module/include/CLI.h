@@ -3,36 +3,36 @@
 #include <string>
 
 #include "AddCommand.h"
+#include "BranchCommand.h"
 #include "CommitCommand.h"
 #include "IgnoreManager.h"
 #include "InitCommand.h"
 #include "LogCommand.h"
+#include "RestoreCommand.h"
 
 namespace minigit {
 
 class CLI {
 public:
-    // Core dispatcher method calling:
-    //   initRepo
-    //   addFile
-    //   addAll
-    //   addVerify
-    //   removeFile
-    //   ignoreAdd
-    //   ignoreRemove
-    //   ignoreVerify
-    //   commitRepo
-    //   undoCommit
-    //   redoCommit
-    //   showLog
+    // Looks argv[1] up in the command table (src/CLI.cpp) and runs its handler:
+    //   init -> initRepo            add -> addFile / addAll / addVerify
+    //   remove -> removeFile        ignore -> ignoreAdd / ignoreRemove / ignoreVerify
+    //   commit, undo, redo -> commitRepo / undoCommit / redoCommit
+    //   log -> showLog / showGraph  checkout -> checkoutCommit
+    //   branch, switch -> showBranches / createBranch / switchBranch
+    //   install, uninstall, help
+    // Wrong arguments print that command's usage and return 1.
     static int dispatch(int argc, char** argv, const std::string& root = ".");
 
     // Result and error mapping / output formatters
     static int printInit(const InitResult& r);
     static int printAdd(const AddResult& r, const std::string& p);
     static int printIgnore(const IgnoreResult& r, const std::string& p);
-    static int printCommit(const CommitResult& r);
+    static int printCommit(const CommitResult& r, const std::string& branch = "main");
     static int printLog(const LogResult& r);
+    static int printGraph(const GraphResult& r);
+    static int printRestore(const RestoreResult& r);
+    static int printBranch(const BranchResult& r);
 
     // Helpers
     static void printUsage();

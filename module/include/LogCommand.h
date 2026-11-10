@@ -28,6 +28,23 @@ struct LogResult {
 // exercise the doubly linked list rather than a plain array copy.
 LogResult showLog(const std::string& root = ".", bool reverse = false);
 
+// minigit log --graph (Phase 3): every branch drawn from the commit graph (DAG), newest first.
+// A row is either a commit row (commitId set) or a connector row such as "|\" or "|/".
+struct GraphRow {
+    std::string graph;       // lane drawing, e.g. "| *" ; trailing spaces removed
+    std::string commitId;    // "" for connector rows
+    std::string message;
+    std::string decoration;  // "HEAD -> main, feature" for branch tips; "" otherwise
+};
+
+struct GraphResult {
+    enum Status { OK, EMPTY, NOT_A_REPO, ERROR } status = ERROR;
+    std::vector<GraphRow> rows;
+    std::string errorMessage;
+};
+
+GraphResult showGraph(const std::string& root = ".");
+
 // Formats a unix-timestamp string (as stored in commit metadata) into
 // "YYYY-MM-DD HH:MM:SS" (local time). Returns the input unchanged if it
 // isn't a plain number.
