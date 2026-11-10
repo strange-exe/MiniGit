@@ -435,8 +435,6 @@ code, kbd, pre { font-family: var(--font-mono); }
     --a-call: #b8c7ea;
     --a-file: #e8a065;
     --a-look: #8a93ae;
-    --a-plan: #6c7593;
-    --a-plan-text: #8a93ae;
 }
 :root[data-theme="light"] {
     --a-cli: #2f5aa8; --a-cli-bg: #eef3fb; --a-cli-line: #c9d6ee;
@@ -447,8 +445,6 @@ code, kbd, pre { font-family: var(--font-mono); }
     --a-call: #22396f;
     --a-file: #b2581c;
     --a-look: #6b7280;
-    --a-plan: #9aa1ad;
-    --a-plan-text: #6b7280;
 }
 
 .arch {
@@ -479,7 +475,6 @@ code, kbd, pre { font-family: var(--font-mono); }
     transition: border-color 0.15s, background-color 0.15s;
 }
 .arch-pick:hover { border-color: var(--accent); }
-.arch-pick.planned { border-style: dashed; color: var(--muted); }
 .arch-pick[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .arch-all { margin-left: auto; font-family: var(--font-sans); }
 .arch-tour {
@@ -507,19 +502,16 @@ code, kbd, pre { font-family: var(--font-mono); }
 #archSvg .bn-mod { fill: var(--a-mod); }
 #archSvg .bn-ds { fill: var(--a-ds); }
 #archSvg .bn-st { fill: var(--a-st); }
-#archSvg .sep { stroke: var(--line-strong); stroke-dasharray: 2 4; }
-#archSvg .ptag, #archSvg .ntag { font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; fill: var(--a-plan-text); }
 
-#archSvg .box { fill: var(--a-node); stroke-width: 1.5; }
+#archSvg .an { transform-box: fill-box; transform-origin: center; }
+#archSvg .box { fill: var(--a-node); stroke-width: 1.5; transition: stroke 0.15s var(--ease), stroke-width 0.15s var(--ease); }
 #archSvg .an-cli .box { stroke: var(--a-cli); }
 #archSvg .an-mod .box { stroke: var(--a-mod); }
 #archSvg .an-ds .box { stroke: var(--a-ds); }
 #archSvg .an-st .box { stroke: var(--a-st); }
-#archSvg .an.planned .box { stroke: var(--a-plan); stroke-dasharray: 6 5; }
 #archSvg .nt { font-size: 15px; font-weight: 600; fill: var(--text); }
 #archSvg .ns { font-size: 12px; fill: var(--muted); }
 #archSvg .mono { font-family: var(--font-mono); }
-#archSvg .an.planned .nt, #archSvg .an.planned .ns { fill: var(--a-plan-text); }
 #archSvg [data-pick] { cursor: pointer; }
 #archSvg [data-pick]:hover .box { stroke-width: 2.25; }
 #archSvg [data-pick]:focus { outline: none; }
@@ -529,11 +521,9 @@ code, kbd, pre { font-family: var(--font-mono); }
 #archSvg .e-call { stroke: var(--a-call); }
 #archSvg .e-file { stroke: var(--a-file); }
 #archSvg .e-look { stroke: var(--a-look); stroke-dasharray: 5 4; stroke-width: 1.5; }
-#archSvg .e-plan { stroke: var(--a-plan); stroke-dasharray: 6 5; stroke-width: 1.5; }
 #archSvg .mk-call { fill: var(--a-call); }
 #archSvg .mk-file { fill: var(--a-file); }
 #archSvg .mk-look { fill: var(--a-look); }
-#archSvg .mk-plan { fill: var(--a-plan); }
 #archSvg .elbl { font-size: 11.5px; fill: var(--muted); }
 #archSvg .elbl-file { fill: var(--a-file); }
 
@@ -543,8 +533,17 @@ code, kbd, pre { font-family: var(--font-mono); }
 #archSvg.tracing .ae.on .edge { stroke-width: 2.4; }
 #archSvg .ae.only:not(.on) { display: none; }
 #archSvg .an.hot .box { stroke-width: 2.75; }
-#archSvg .an.hot:not(.planned) .box { stroke-dasharray: none; }
 #archSvg .an.focus .box { stroke: var(--accent); stroke-width: 3; }
+/* the request dot that travels a traced path once (script.js, skipped with reduced motion) */
+#archSvg .packet { fill: var(--accent); stroke: var(--a-node); stroke-width: 2.5; pointer-events: none; }
+#archSvg .route { fill: none; stroke: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .arch-steps li { animation: arch-step-in 0.38s var(--ease) both; animation-delay: calc(var(--i, 0) * 45ms + 140ms); }
+    .arch-facts > * { animation: arch-fade-in 0.32s var(--ease) 0.2s both; }
+    @keyframes arch-step-in { from { opacity: 0; transform: translateY(6px); } }
+    @keyframes arch-fade-in { from { opacity: 0; } }
+}
 
 .arch-legend {
     display: flex;
@@ -561,7 +560,6 @@ code, kbd, pre { font-family: var(--font-mono); }
 .key-call { border-color: var(--a-call); }
 .key-file { border-color: var(--a-file); }
 .key-look { border-top-style: dashed; border-color: var(--a-look); }
-.key-plan { border-top-style: dashed; border-color: var(--a-plan); }
 
 .arch-detail {
     display: grid;
@@ -575,7 +573,6 @@ code, kbd, pre { font-family: var(--font-mono); }
     font: 500 0.78rem var(--font-mono);
     color: var(--accent-text);
 }
-.arch-kicker.planned { color: var(--subtle); }
 .arch-steps h3 { margin: 0 0 6px; font-size: 1.05rem; }
 .arch-steps h3.mono { font-family: var(--font-mono); }
 .arch-steps > p { margin: 0 0 14px; color: var(--muted); font-size: 0.93rem; max-width: 70ch; }

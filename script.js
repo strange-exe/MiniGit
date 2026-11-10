@@ -1481,7 +1481,7 @@ function setupPdf() {
 // Every node and edge lists the traces it belongs to ("core" = always part of a trace).
 // ---------------------------------------------------------------------------
 const ARCH_NODES = [
-    // layer, id, x, y, w, title, sub, mono flags [title, sub], traces, planned
+    // layer, id, x, y, w, title, sub, mono flags [title, sub], traces
     ["cli", "input", 115, 68, 170, "minigit <cmd>", "terminal input", [1, 0], "core"],
     ["cli", "disp", 510, 68, 380, "Dispatcher and command table", "find command, check arguments, help and typo hints", [0, 0], "core"],
     ["cli", "out", 1190, 68, 220, "Output", "message and exit code", [0, 0], "core"],
@@ -1673,7 +1673,7 @@ function setupArch() {
     };
 
     const defs = el("defs", {}, svg);
-    for (const k of ["call", "file", "look", "plan"]) {
+    for (const k of ["call", "file", "look"]) {
         const m = el("marker", { id: `ar-${k}`, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
         el("path", { d: "M0,0 L10,5 L0,10 z", class: `mk mk-${k}` }, m);
     }
@@ -1697,13 +1697,12 @@ function setupArch() {
     }
 
     const byId = {};
-    for (const [layer, id, x, y, w, title, sub, mono, t, planned] of ARCH_NODES) {
-        const g = el("g", { class: `an an-${layer}${planned ? " planned" : ""}`, "data-id": id, "data-t": t }, svg);
+    for (const [layer, id, x, y, w, title, sub, mono, t] of ARCH_NODES) {
+        const g = el("g", { class: `an an-${layer}`, "data-id": id, "data-t": t }, svg);
         el("rect", { class: "box", x, y, width: w, height: 62, rx: 8 }, g);
         const cx = x + w / 2;
-        const tag = planned && layer === "mod";
-        text(g, `nt${mono[0] ? " mono" : ""}`, cx, y + (tag ? 24 : 28), title, "middle");
-        text(g, tag ? "ntag" : `ns${mono[1] ? " mono" : ""}`, cx, y + (tag ? 46 : 48), sub, "middle");
+        text(g, `nt${mono[0] ? " mono" : ""}`, cx, y + 28, title, "middle");
+        text(g, `ns${mono[1] ? " mono" : ""}`, cx, y + 48, sub, "middle");
         const trace = t.split(" ")[0];
         if (trace !== "core") {
             g.dataset.pick = trace;
@@ -1729,12 +1728,106 @@ function setupArch() {
     const facts = $("#archFacts");
     const overview = { kicker: $("#archKicker").textContent, title: $("#archTitle").textContent, lead: $("#archLead").textContent };
 
+    // ---- Motion. Entrances ease out, exits ease in, interface feedback springs with a
+    // slight overshoot. Nothing here runs with reduced motion: the path simply appears.
+    const EASE_OUT = "cubic-bezier(0.16, 1, 0.3, 1)";
+    const EASE_IN = "cubic-bezier(0.55, 0, 1, 0.45)";
+    const SPRING = "cubic-bezier(0.34, 1.32, 0.64, 1)";
+    const moving = () => !reduceMotion.matches && typeof Element.prototype.animate === "function";
+    // The diagram is read top to bottom, so each part starts when the path reaches its row.
+    const delayAt = (y) => Math.max(0, Math.min(1, (y - 60) / 520)) * 480;
+    const route = el("path", { class: "route" }, svg);
+    let anims = [];
+    let stripped = [];   // [path, marker attribute, value] taken off while a line draws
+    let packet = null;
+    let packetFrame = 0;
+
+    function stopMotion() {
+        anims.forEach((a) => a.cancel());
+        anims = [];
+        stripped.forEach(([p, attr, v]) => p.setAttribute(attr, v));
+        stripped = [];
+        cancelAnimationFrame(packetFrame);
+        if (packet) { packet.remove(); packet = null; }
+    }
+
+    // Each traced line draws from its start to its arrow, row by row.
+    function drawEdges() {
+        for (const g of parts) {
+            if (!g.classList.contains("ae") || !g.classList.contains("on")) continue;
+            const p = g.querySelector(".edge");
+            const delay = delayAt(p.getBBox().y);
+            if (p.classList.contains("e-look")) {   // dashed: fade it in rather than redraw the dashes
+                anims.push(g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, delay, easing: EASE_OUT, fill: "backwards" }));
+                continue;
+            }
+            const len = p.getTotalLength();
+            for (const attr of ["marker-end", "marker-start"]) {
+                const v = p.getAttribute(attr);
+                if (v) { p.removeAttribute(attr); stripped.push([p, attr, v]); }
+            }
+            const a = p.animate(
+                [{ strokeDasharray: `${len} ${len}`, strokeDashoffset: len }, { strokeDasharray: `${len} ${len}`, strokeDashoffset: 0 }],
+                { duration: 260 + Math.min(len, 400) * 0.6, delay, easing: EASE_OUT, fill: "backwards" });
+            a.finished.then(() => {
+                stripped = stripped.filter(([q, attr, v]) => (q === p ? (p.setAttribute(attr, v), false) : true));
+            }, () => {});
+            anims.push(a);
+        }
+    }
+
+    // The boxes the command works through settle in as the path reaches them.
+    function settleNodes(tr) {
+        for (const id of tr.hot) {
+            const g = byId[id];
+            const delay = delayAt(Number(g.querySelector(".box").getAttribute("y"))) + 60;
+            anims.push(g.animate([{ transform: "scale(0.93)" }, { transform: "scale(1)" }],
+                { duration: 460, delay, easing: SPRING, fill: "backwards" }));
+        }
+    }
+
+    // One request dot follows the real route: input, dispatcher, the module's column, down to storage.
+    function sendPacket(tr) {
+        route.setAttribute("d", `M200 99 H700 V178 H${tr.col} V599`);
+        const total = route.getTotalLength();
+        packet = el("circle", { class: "packet", r: 6, cx: 200, cy: 99 }, svg);
+        const inOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+        const DUR = 1300;
+        const DELAY = 180;
+        const start = performance.now() + DELAY;
+        const dot = packet;
+        const tick = (now) => {
+            if (packet !== dot) return;
+            const t = Math.min(1, Math.max(0, (now - start) / DUR));
+            const pt = route.getPointAtLength(inOut(t) * total);
+            dot.setAttribute("cx", pt.x);
+            dot.setAttribute("cy", pt.y);
+            if (t < 1) { packetFrame = requestAnimationFrame(tick); return; }
+            const out = dot.animate([{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(0.4)" }],
+                { duration: 220, easing: EASE_IN, fill: "forwards" });
+            out.finished.then(() => { if (packet === dot) { dot.remove(); packet = null; } }, () => {});
+        };
+        anims.push(dot.animate([{ opacity: 0, transform: "scale(0.4)" }, { opacity: 1, transform: "scale(1)" }],
+            { duration: 240, delay: DELAY, easing: EASE_OUT, fill: "backwards" }));
+        packetFrame = requestAnimationFrame(tick);
+    }
+
     function focusNodes(ids) {
-        Object.values(byId).forEach((g) => g.classList.toggle("focus", ids.includes(g.dataset.id)));
+        Object.values(byId).forEach((g) => {
+            const now = ids.includes(g.dataset.id);
+            const was = g.classList.contains("focus");
+            g.classList.toggle("focus", now);
+            // a small nudge points at the box a hovered step talks about
+            if (now && !was && moving()) {
+                g.animate([{ transform: "scale(1)" }, { transform: "scale(1.045)" }, { transform: "scale(1)" }],
+                    { duration: 340, easing: SPRING });
+            }
+        });
     }
 
     function select(name) {
         const tr = name ? ARCH_TRACES[name] : null;
+        stopMotion();
         svg.classList.toggle("tracing", Boolean(tr));
         for (const g of parts) {
             const ts = g.dataset.t.split(" ");
@@ -1745,16 +1838,21 @@ function setupArch() {
         focusNodes([]);
 
         $("#archKicker").textContent = tr ? tr.kicker : overview.kicker;
-        $("#archKicker").classList.toggle("planned", Boolean(tr && tr.planned));
         $("#archTitle").textContent = tr ? tr.title : overview.title;
         $("#archTitle").classList.toggle("mono", Boolean(tr));
         $("#archLead").textContent = tr ? tr.lead : overview.lead;
         steps.innerHTML = "";
         facts.innerHTML = "";
         if (!tr) return;
-        tr.steps.forEach(([ids, html]) => {
+        if (moving()) {
+            drawEdges();
+            settleNodes(tr);
+            sendPacket(tr);
+        }
+        tr.steps.forEach(([ids, html], i) => {
             const li = document.createElement("li");
             li.innerHTML = `<span>${html}</span>`;
+            li.style.setProperty("--i", i);
             li.tabIndex = 0;
             const on = () => focusNodes(ids);
             const off = () => focusNodes([]);
