@@ -1535,7 +1535,7 @@ const ARCH_EDGES = [
     ["call", "M1400 300 V395", "branch"],
     ["file", "M200 300 V565", "init", { label: [210, 438, "creates .minigit/"] }],
     ["file", "M400 463 V565", "add", { both: true, label: [408, 503, "load / save"] }],
-    ["file", "M600 463 V565", "add ignore", { both: true, label: [608, 503, "load / save"] }],
+    ["file", "M600 463 V565", "add ignore checkout", { both: true, label: [608, 503, "load / save"] }],
     ["file", "M800 463 V565", "commit undo", { both: true, label: [808, 503, "load / save"] }],
     ["file", "M885 280 H900 V599 H912", "commit", { label: [906, 342, "writes"] }],
     ["file", "M1000 566 V463", "log", { label: [1008, 503, "reads commits"] }],
@@ -1548,7 +1548,16 @@ const ARCH_EDGES = [
     ["file", "M200 633 V648 H1092 V280 H1088", "log", { only: true, label: [208, 669, "reads HEAD first"] }],
     ["file", "M1200 463 V565", "checkout", { label: [1208, 503, "writes"] }],
     ["file", "M1400 463 V565", "branch", { both: true, label: [1408, 503, "reads / writes"] }],
-    ["file", "M1085 599 H1112", "checkout"],
+    ["file", "M1085 599 H1112", "checkout branch"],
+    // checkout / rollback: what the module touches in storage, on the lane under the row
+    ["file", "M1115 290 H1100 V648 H200 V633", "checkout", { only: true, label: [208, 669, "moves HEAD"] }],
+    ["file", "M400 648 V633", "checkout", { only: true, label: [408, 669, "checks unsaved work"] }],
+    ["file", "M600 648 V633", "checkout", { only: true, label: [608, 669, "skips ignored files"] }],
+    ["file", "M1000 648 V633", "checkout", { only: true, label: [1008, 669, "reads the commit"] }],
+    // branch / checkout <branch>
+    ["file", "M1315 290 H1300 V648 H200 V633", "branch", { only: true, label: [208, 669, "points HEAD at the branch"] }],
+    ["file", "M1000 648 V633", "branch", { only: true, label: [1008, 669, "reads commits"] }],
+    ["file", "M1200 648 V633", "branch", { only: true, label: [1208, 669, "restores files"] }],
 ];
 
 const ARCH_TRACES = {
