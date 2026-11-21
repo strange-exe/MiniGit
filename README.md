@@ -144,6 +144,18 @@ minigit add -v main.cpp     # 'main.cpp' is staged
 
 Staging a file twice never creates a duplicate entry, and a path that does not exist is reported as `'<path>' does not exist`.
 
+### Unstaging with `remove`
+`remove` only edits the index. Your working files are never touched.
+
+```bash
+minigit remove main.cpp     # Unstaged 'main.cpp'
+minigit remove src          # Unstaged 3 files
+minigit remove .            # Unstaged 5 files   (clears the whole staging area)
+minigit remove notes.txt    # 'notes.txt' is not staged
+```
+
+If a staged file was deleted from disk, `add` records that as a staged deletion (`Staged deletion of '<file>'`), so the next commit removes it from the snapshot.
+
 ---
 
 ## 🛠️ Build & Test Instructions
