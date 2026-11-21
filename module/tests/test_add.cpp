@@ -132,6 +132,28 @@ int main() {
     CHECK(ignoreAdd("../outside.txt", R).status == IgnoreResult::ERROR);
     CHECK(IgnoreManager(R).lines().size() == 2);
 
+        // ---- staged deletions ----
+    {
+        StagingArea sd(R);
+        sd.clear();  // start from an empty index
+        CHECK(sd.stage("keep.txt"));
+        CHECK(sd.stageDeletion("./gone.txt"));
+        CHECK(!sd.stageDeletion("gone.txt"));  // already staged for deletion
+        CHECK(sd.isStagedForDeletion("gone.txt") && !sd.isStaged("gone.txt"));
+        CHECK(sd.save());
+    }
+    {
+        StagingArea sd(R);  // reloaded from .minigit/index
+        CHECK(sd.getStagedFiles() == std::vector<std::string>{"keep.txt"});
+        CHECK(sd.getStagedDeletions() == std::vector<std::string>{"gone.txt"});
+        CHECK(sd.getStagedEntries() == (std::vector<std::string>{"keep.txt", "deleted:gone.txt"}));
+        CHECK(sd.size() == 2);
+        CHECK(sd.stage("gone.txt"));  // staging the file again cancels its deletion
+        CHECK(!sd.isStagedForDeletion("gone.txt") && sd.isStaged("gone.txt"));
+        CHECK(sd.unstage("gone.txt") && sd.unstage("keep.txt"));
+        CHECK(!sd.unstage("keep.txt") && sd.size() == 0);
+    }
+
     // ---- snapshots for undo/redo ----
     StagingArea sb(R);
     auto snap = sb.getStagedFiles();
