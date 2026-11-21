@@ -129,6 +129,21 @@ Used for instant, deterministic pattern matching to block ignored files from sta
 | `minigit install` | `CLI::install()` | Manually copies `minigit` into the user's `PATH` |
 | `minigit uninstall` | `CLI::uninstall()` | Removes `minigit` from user `PATH` |
 
+## Staging & Ignore Guide
+
+### Staging files with `add`
+`add` copies nothing; it only records normalized relative paths in `.minigit/index`. Ignore rules are checked first, and ignored directories are skipped without being walked.
+
+```bash
+minigit add main.cpp        # Staged 'main.cpp'
+minigit add src             # staged 3 file(s), 0 already staged, skipped 0 ignored
+minigit add .               # staged 2 file(s), 3 already staged, skipped 1 ignored
+minigit add secret.txt      # 'secret.txt' is ignored by 'secret.txt' (line 2)
+minigit add -v main.cpp     # 'main.cpp' is staged
+```
+
+Staging a file twice never creates a duplicate entry, and a path that does not exist is reported as `'<path>' does not exist`.
+
 ---
 
 ## 🛠️ Build & Test Instructions
