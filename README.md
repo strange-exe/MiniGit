@@ -50,10 +50,13 @@ MiniGit follows a modular 5-layer architecture:
 - **Ignore CLI Interface**: Validates `ignore`, `ignore -r` and `ignore -v` input; rejects empty patterns and anything outside the repository (`..`, absolute paths, drive letters).
 - **First-Run Self-Installation**: Copies the executable into the user's `PATH` on first run, and refreshes that copy when a newer build is run.
 
-### Sparsh — Trie & Staging Area Module
-- **Trie (Prefix Tree) Engine**: Dual-Trie architecture for fast $O(L)$ pattern matching without disk scans.
-- **Staging Area (`.minigit/index`)**: Holds one normalized relative path per line with duplicate staging prevention.
-- **Add Operations**: Supports single file tracking (`add <file>`), batch repository staging (`add .`), and unstaging (`remove <file|dir|.>`).
+### Sparsh — Ignore Engine, Trie Architecture & Staging Area
+- **Dual-Trie Ignore Engine**: A forward Trie handles file paths and directory rules, while a reversed Trie handles extension patterns such as `*.cpp`, giving $O(L)$ matching without scanning the disk.
+- **`.minigitignore` Management**: Supports adding, removing and evaluating rules through `ignore`, `ignore -r` and `ignore -v`. Stores the line number of each rule, tolerates CRLF line endings, and always excludes the internal `.minigit/` directory.
+- **Path & Directory Matching**: Handles exact paths, directory-prefix rules and extensions, and enforces directory boundaries so `build/` does not match `buildings/`.
+- **Staging Area (`.minigit/index`)**: Keeps normalized repository-relative paths in a `std::set` to prevent duplicates, with persistent storage and unstaging through `remove <file|dir|.>`.
+- **Recursive Add**: `add <file|dir>` and `add .` walk directories recursively, check ignore rules before staging, and skip ignored directories entirely.
+- **Testing**: `test_trie` and `test_add` cover Trie operations, extension patterns, directory boundaries, duplicate staging, rule removal and CRLF handling.
 
 ### Krish — Commit & Undo/Redo Module
 - **`minigit commit`**: Saves each staged file's content under `.minigit/objects/<id>/snapshot/`, writes `metadata` (parent, timestamp, author, message, files) and moves `HEAD`. The commit id is a SHA-1 of that content.
