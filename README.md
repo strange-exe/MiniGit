@@ -156,6 +156,27 @@ minigit remove notes.txt    # 'notes.txt' is not staged
 
 If a staged file was deleted from disk, `add` records that as a staged deletion (`Staged deletion of '<file>'`), so the next commit removes it from the snapshot.
 
+### Managing ignore rules with `ignore`
+Rules live in `.minigitignore`, one per line. `#` starts a comment. Three rule types are supported:
+
+| Rule | Example | Matches |
+|------|---------|---------|
+| Extension | `*.log` | Any file ending in `.log`, at any depth |
+| File path | `secret.txt` | That exact path |
+| Directory | `build/` | Everything under `build/`, but not `buildings/` |
+
+Negation (`!keep.txt`) and other wildcards (`a/*.txt`) are rejected with a clear message instead of being silently ignored. `.minigit/` is always excluded.
+
+```bash
+minigit ignore                  # lists rules:  1: *.log   2: build/
+minigit ignore "*.tmp"          # Ignored '*.tmp' (line 3)
+minigit ignore -v build/x.o     # 'build/x.o' is ignored by 'build/' (line 2)
+minigit ignore -v main.cpp      # 'main.cpp' is not ignored
+minigit ignore -r "*.tmp"       # Removed '*.tmp' (was line 3)
+```
+
+Removing a rule shifts later line numbers up, and the Tries are rebuilt so `ignore -v` always reports the correct line.
+
 ---
 
 ## 🛠️ Build & Test Instructions
