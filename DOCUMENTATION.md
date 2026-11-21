@@ -16,6 +16,7 @@
    - [2.3 Status & Error Mapping (`IS_STAGED`)](#23-status--error-mapping-is_staged)
    - [2.4 `.minigitignore` CLI & Validation](#24-minigitignore-cli--validation)
    - [2.5 Zero-Config First-Run Self-Installation](#25-zero-config-first-run-self-installation)
+2B. [Sparsh's Responsibilities & Implementation](#2b-sparshs-responsibilities--implementation)2B. [Sparsh's Responsibilities & Implementation](#2b-sparshs-responsibilities--implementation)
 3. [Core Data Structures](#3-core-data-structures)
    - [3.1 Trie (Prefix Tree) for Ignored Files](#31-trie-prefix-tree-for-ignored-files)
    - [3.2 Staging Index (`.minigit/index`)](#32-staging-index-minigitindex)
