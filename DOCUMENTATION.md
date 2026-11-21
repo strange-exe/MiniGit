@@ -162,8 +162,11 @@ To solve PowerShell's restriction requiring `.\` for current-directory binaries:
 ### 3.2 Staging Index (`.minigit/index`)
 - **Header:** `include/StagingArea.h`
 - **Source:** `src/StagingArea.cpp`
-- **Disk Format:** Plain text file `.minigit/index` holding one path per line.
-- **In-Memory Cache:** `std::set<std::string>` (red-black tree) enforces sorted order and provides $O(\log n)$ duplicate staging prevention.
+- **Disk Format:** plain text file `.minigit/index` holding one normalized, repository-relative path per line (always `/` separators, so `.\src\a.txt` and `src/a.txt` become the same entry). Files staged for deletion are written as `deleted:<path>`.
+- **In-Memory Cache:** two `std::set<std::string>` containers (red-black trees), one for staged files and one for staged deletions. They enforce sorted order and give $O(\log n)$ duplicate prevention and status checks.
+- **Staging and unstaging:** `stage()` and `unstage()` change memory only, and `save()` writes the file. Staging a path that is already staged returns `false` instead of adding a duplicate. Staging a file that was marked for deletion cancels the deletion.
+- **Safe loading:** `load()` tolerates CRLF line endings and skips blank lines. It also skips any entry that is absolute, contains `..`, or points inside `.minigit/`, so a hand-edited or damaged index cannot reach outside the working tree.
+- **Safe saving:** `save()` writes through `writeFileAtomic`, so a failed write leaves the previous index intact.
 
 ### 3.3 Directed Acyclic Graph (DAG) for Commits and Branches
 - **Header:** `include/CommitGraph.h`
