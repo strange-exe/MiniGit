@@ -129,7 +129,7 @@ Used for instant, deterministic pattern matching to block ignored files from sta
 | `minigit install` | `CLI::install()` | Manually copies `minigit` into the user's `PATH` |
 | `minigit uninstall` | `CLI::uninstall()` | Removes `minigit` from user `PATH` |
 
-## Staging & Ignore Guide
+## 📘 Staging & Ignore Guide
 
 ### Staging files with `add`
 `add` copies nothing; it only records normalized relative paths in `.minigit/index`. Ignore rules are checked first, and ignored directories are skipped without being walked.
