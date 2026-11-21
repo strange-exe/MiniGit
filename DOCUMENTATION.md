@@ -123,6 +123,36 @@ To solve PowerShell's restriction requiring `.\` for current-directory binaries:
 - **Where it runs:** self-install is called from `main()`, not from `CLI::dispatch()`. The test programs call `dispatch()` directly, so they can never install themselves as `minigit`.
 - On Linux/macOS the running binary is located through `/proc/self/exe`, not the current working directory.
 
+## 2B. Sparsh's Responsibilities & Implementation
+
+Sparsh is responsible for the **Ignore Engine (Dual Trie)**, **`.minigitignore` management**, and the **Staging Area** with the `add` and `remove` commands.
+
+### 2B.1 Ignore Engine
+- **Headers:** `include/Trie.h`, `include/IgnoreManager.h`
+- **Sources:** `src/Trie.cpp`, `src/IgnoreManager.cpp`
+- **`Trie`:** a pure data structure with no file I/O. It provides `insert`, `search`, `find`, `remove` (with pruning) and `findMatch`. See section 3.1 for its internals.
+- **`IgnoreManager`:** loads `.minigitignore`, parses each line into an extension, file or directory rule, and keeps one forward Trie and one reversed-extension Trie in sync with the file.
+  - `addPattern` rejects invalid or unsupported patterns (negation `!`, wildcards other than `*.ext`) with a clear message, and reports a rule that already exists with its line number.
+  - `removePattern` deletes the line and rebuilds both Tries so stored line numbers stay correct. If the path is ignored through a different rule, it names that rule.
+  - `verify` / `isIgnored` return the matching rule and its line number, and apply the built-in `.minigit/` rule.
+- **File handling:** CRLF line endings are tolerated, comments (`#`) and blank lines are skipped, and the file is written atomically so a failed write keeps the old rules.
+
+### 2B.2 Staging Area
+- **Header / Source:** `include/StagingArea.h`, `src/StagingArea.cpp`
+- Keeps staged files and staged deletions in two `std::set` containers and persists them to `.minigit/index`. The file format and safe-loading rules are in section 3.2.
+- **Path normalization:** `normalizePath()` in `include/PathUtils.h` converts `\` to `/`, removes `./`, and makes absolute paths repository-relative. Every module that handles paths uses it.
+
+### 2B.3 Add and Remove
+- **Header / Source:** `include/AddCommand.h`, `src/AddCommand.cpp`
+- `addFile` stages one file, or a directory recursively. `addAll` stages the whole repository. `addVerify` backs `add -v`. `removeFile` unstages a file, a directory or everything (`remove .`).
+- During a recursive walk, each path is checked against the ignore rules first. An ignored directory is skipped as a whole (`disable_recursion_pending`), so its contents are never visited. A file that is already tracked stays stageable even if a later rule would ignore it.
+- A tracked file that was deleted from disk is staged as a deletion (`deleted:<path>`), so the next commit removes it from the snapshot.
+- Results come back as `AddResult` / `IgnoreResult` structs, and only the CLI prints them.
+
+### 2B.4 Tests
+- `test_trie`: insert/search, duplicate and empty keys, directory boundaries, exact-path rules, extension rules and node pruning.
+- `test_add`: staging, duplicate prevention, ignore enforcement and persistence across runs.
+
 ---
 
 ## 3. Core Data Structures
