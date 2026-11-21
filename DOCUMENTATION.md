@@ -145,6 +145,20 @@ To solve PowerShell's restriction requiring `.\` for current-directory binaries:
    - Each terminal node retains the 1-based line number of `.minigitignore`.
    - `minigit ignore -v` queries the Trie and prints the exact line that blocked the file.
 
+#### How the Trie Works Internally
+- **Node layout:** each node holds a `std::map<char, unique_ptr<Node>>` of children, a `terminal` flag, a `prefixRule` flag, the 1-based `line`, and the rule text as written (`pattern`).
+- **`insert(key, pattern, line, prefixRule)`:** walks or creates one node per character and marks the last node terminal. It returns `false` for an empty key or a key that already exists, so the same rule is never stored twice.
+- **`search(key)` / `find(key)`:** exact lookup. A prefix of a stored key is not a match, so `secret` does not match the rule `secret.txt`.
+- **`findMatch(text)`:** walks `text` once. It matches as soon as it passes a terminal node marked `prefixRule` (a `build/` directory rule), or when it reaches the end of the text on a terminal node (an exact file rule). Cost is $O(L)$ and does not depend on how many rules exist.
+- **`remove(key)`:** clears the terminal node, then walks back up and deletes every node left with no children and no rule. The Trie never keeps dead branches after `ignore -r`.
+
+#### Matching Rules and Precedence
+- **Directory boundaries:** directory rules are stored with the trailing `/`, so `build/` matches `build/x.o` but not `buildings/a.cpp`.
+- **Extension rules:** the rule `*.log` is stored as the reversed key `gol.`, and the path being checked is reversed too. The same prefix walk then finds the extension, at any depth.
+- **Both Tries can match:** a path such as `build/app.log` may match a directory rule and an extension rule. `ignore -v` reports the rule with the **lower line number**, so the answer is deterministic.
+- **Built-in rule:** `.minigit/` is always ignored, even though it is not written in `.minigitignore`. `ignore -v` reports it as `built-in rule`.
+- **Line numbers stay correct:** removing a rule shifts later lines up, so `IgnoreManager` rebuilds both Tries from the file after every removal.
+
 ### 3.2 Staging Index (`.minigit/index`)
 - **Header:** `include/StagingArea.h`
 - **Source:** `src/StagingArea.cpp`
