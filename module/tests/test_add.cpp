@@ -118,6 +118,20 @@ int main() {
     r = ignoreVerify("run.log", R);
     CHECK(r.status == IgnoreResult::IGNORED && r.lineNumber == 3);
 
+    // ---- precedence: when both Tries match, the rule on the lower line wins ----
+    writeFile(rootP / ".minigitignore", "*.log\nbuild/\n");
+    r = ignoreVerify("build/app.log", R);
+    CHECK(r.status == IgnoreResult::IGNORED && r.matchedPattern == "*.log" && r.lineNumber == 1);
+    writeFile(rootP / ".minigitignore", "build/\n*.log\n");
+    r = ignoreVerify("build/app.log", R);
+    CHECK(r.status == IgnoreResult::IGNORED && r.matchedPattern == "build/" && r.lineNumber == 1);
+
+    // ---- unsupported patterns are refused and never written to the file ----
+    CHECK(ignoreAdd("!keep.txt", R).status == IgnoreResult::ERROR);
+    CHECK(ignoreAdd("src/*.txt", R).status == IgnoreResult::ERROR);
+    CHECK(ignoreAdd("../outside.txt", R).status == IgnoreResult::ERROR);
+    CHECK(IgnoreManager(R).lines().size() == 2);
+
     // ---- snapshots for undo/redo ----
     StagingArea sb(R);
     auto snap = sb.getStagedFiles();
