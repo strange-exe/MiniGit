@@ -24,6 +24,7 @@
 5. [Rollback Architecture & Semantics](#5-rollback-architecture--semantics)
 6. [DAG-Based Branch Management](#6-dag-based-branch-management)
 7. [Compilation, Portability & Testing](#7-compilation-portability--testing)
+8. [Commit, Undo/Redo & History](#8-commit-undoredo--history)
 
 ---
 
@@ -348,3 +349,72 @@ make test
 - `test_dag`: Verifies 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
 - `test_regression`: Holds one numbered case (`E001`...`E015`) for each defect that was found and fixed (path escapes, damaged `HEAD`, truncated metadata, keyword-like file names, Windows-unsafe branch names, non-atomic writes and so on), so a fixed defect cannot return unnoticed.
 - `test_integration`: Verifies whole workflows through the real dispatcher (scenarios A-F): stage and commit, divergent branches, rollback, undo/redo mixed with branch switching, restarts, and rejected invalid operations. It checks that files, refs, history and the DAG agree after every step.
+
+---
+
+## 8. Commit, Undo/Redo & History
+
+### 8.1 What `minigit commit` Does
+- **Header / Source:** `include/CommitCommand.h`, `src/CommitCommand.cpp`
+- **Entry point:** `minigit::commitRepo(message, root)` returns a `CommitResult`; it never prints.
+
+Order of work, so that a failure at any point leaves the repository as it was:
+1. Check that `.minigit/` exists, that the message is not empty after trimming, and that `HEAD` is usable (valid, on a branch, pointing at a readable commit). A detached `HEAD` is refused because the new commit would belong to no branch.
+2. Read the staged files and staged deletions from the index. Nothing staged gives `nothing to commit`.
+3. Check that every staged file still exists, and that every staged deletion names a file the parent commit tracks.
+4. Compute the commit id (section 8.2).
+5. Write the snapshot files, then the `metadata` file last and atomically. The presence of `metadata` is what marks a commit as complete, so an interrupted commit is never taken for a valid one; a half-written commit directory is removed again.
+6. Move the active branch to the new commit, record the operation for undo, and only then clear the index.
+
+Multi-line messages are folded to one line (each run of CR/LF becomes one space) because metadata and history are line-based files.
+
+### 8.2 Commit Identity
+The id is a 40-character SHA-1, implemented inside `CommitCommand.cpp` so the project needs no crypto library. It is computed over a canonical text made of:
+```
+parent <parent id or empty>
+timestamp <unix seconds>
+message <one-line message>
+file <path> <byte count>
+<file content>
+delete <path>            (one line per staged deletion)
+```
+The same parent, time, message and content give the same id, and a commit with that id already on disk is reused instead of written twice.
+
+### 8.3 Commit Object Layout
+```
+.minigit/objects/<commit-id>/
+├── metadata                 # written last, atomically
+└── snapshot/<path>          # content of each file this commit stores
+```
+`metadata` is plain text:
+```
+commit <id>
+parent <id | none>
+timestamp <unix seconds>
+author <name>
+message <one line>
+files <N>
+<N path lines>
+deleted <M>              (only when the commit removes tracked files)
+<M path lines>
+```
+The path lists are read by position and count, never by keyword, so a file called `message 1.txt` cannot be mistaken for a header line. `author` comes from `MINIGIT_AUTHOR`, then `USERNAME`, then `USER`, and is `unknown` if none is set.
+
+A commit stores only the files that were staged. The full file set at a commit is rebuilt by walking the parent chain (`getTrackedFilesAtCommit` in `RepoUtils.h`): a newer commit overrides its ancestors for the files it stores, and a path in its `deleted` list stops being tracked. If a commit or snapshot in the chain is missing, or the parents form a cycle, the function reports the history as incomplete and callers that would change the working tree stop.
+
+### 8.4 Undo / Redo with `std::deque`
+- **Header / Source:** `include/CommitHistory.h`, `src/CommitHistory.cpp`
+- **Class:** `minigit::CommitHistory`, persisted in `.minigit/history`
+
+| Operation | Deque call | Effect |
+|---|---|---|
+| New commit | `undoDeque_.push_back()` and `redoDeque_.clear()` | A new commit invalidates everything that could be redone |
+| History full (20 entries) | `undoDeque_.pop_front()` | The oldest state is dropped in $O(1)$ |
+| `undo` | `undoDeque_.pop_back()`, `redoDeque_.push_back()` | Branch tip returns to the recorded commit; its staged files return to the index |
+| `redo` | `redoDeque_.pop_back()`, `undoDeque_.push_back()` | The undone commit is re-applied |
+
+A deque fits because both ends are used: the newest end behaves as a stack for undo/redo, and the oldest end is trimmed by the history limit.
+
+**Guard fields.** Each entry stores the `branch` it belongs to and the `expectedHead` the branch must be at. Undo or redo refuses (`nothing to undo here: ...`) when the active branch differs, or when the branch has moved since through `checkout` or `rollback`. Without this check an undo could move a branch onto a commit from another line of history. Entries written by older versions have no guard and are checked by parentage instead.
+
+**History file format.** Two sections, `UNDO_COUNT <n>` and `REDO_COUNT <n>`. Each entry is a header line (`commit parent timestamp stagedCount branch expectedHead`, with `-` for an empty value), a message line, then one line per staged entry. The file is replaced atomically, and a truncated or hand-edited file is discarded as a whole instead of being half-trusted.
