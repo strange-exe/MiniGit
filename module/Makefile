@@ -53,7 +53,10 @@ test_regression: tests/test_regression.cpp $(LIB_SRC)
 test_integration: tests/test_integration.cpp $(LIB_SRC)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-TESTS := test_trie test_add test_init test_cli test_commit test_commitlog test_log test_rollback test_branch test_checkout test_dag test_regression test_integration
+test_pathutils: tests/test_pathutils.cpp
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+TESTS := test_trie test_add test_init test_cli test_commit test_commitlog test_log test_rollback test_branch test_checkout test_dag test_regression test_integration test_pathutils
 
 test: $(TESTS)
 	./test_trie
@@ -69,6 +72,7 @@ test: $(TESTS)
 	./test_dag
 	./test_regression
 	./test_integration
+	./test_pathutils
 
 # `clean` has three cases:
 #  * make found a real sh on PATH (MSYS / Git Bash): $(SHELL) is then a full path such as
