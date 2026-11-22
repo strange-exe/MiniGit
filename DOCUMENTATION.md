@@ -31,6 +31,7 @@
    - [3.3 Directed Acyclic Graph (DAG) for Commits and Branches](#33-directed-acyclic-graph-dag-for-commits-and-branches)
    - [3.4 Double-Ended Queue for Undo and Redo](#34-double-ended-queue-for-undo-and-redo)
    - [3.5 Doubly Linked List for the Commit Log](#35-doubly-linked-list-for-the-commit-log)
+   - [3.6 Commit Object and History File Formats](#36-commit-object-and-history-file-formats)
 4. [Command Reference & Usage Examples](#4-command-reference--usage-examples)
 5. [Rollback Architecture & Semantics](#5-rollback-architecture--semantics)
 6. [DAG-Based Branch Management](#6-dag-based-branch-management)
@@ -290,6 +291,50 @@ nullptr <- [c1] <-> [c2] <-> [c3] <-> [c4] -> nullptr
 
 - **Why not a singly linked list:** the first design (Phase 1) used one. With a single direction, one of the two log orders would need an extra reversal or a stack. Two pointers per node make both orders a plain walk.
 - **Building the list:** commits are discovered newest-first by following `parent` links, but inserted oldest-first, so the finished list reads from the first commit to the latest.
+
+### 3.6 Commit Object and History File Formats
+
+**Repository layout**
+```
+.minigit/
+├── HEAD                     # "ref: refs/heads/main", or a raw commit id when detached
+├── index                    # staged paths, one per line
+├── history                  # undo/redo deques (format below)
+├── refs/heads/<branch>      # one file per branch: the tip commit id
+└── objects/<commit-id>/
+    ├── metadata             # commit information (format below)
+    └── snapshot/<path>      # the content of every committed file
+```
+
+**`objects/<commit-id>/metadata`**
+```
+commit <40-character SHA-1 id>
+parent <parent id, or "none" for the first commit>
+timestamp <unix time in seconds>
+author <MINIGIT_AUTHOR, USERNAME or USER>
+message <one-line message>
+files <N>
+<path 1>
+<path 2>
+...
+```
+- The commit id is the SHA-1 of the parent id, the timestamp, the message, and every file's name, size and content, so the same input always produces the same id.
+- A multi-line message is flattened to one line (each run of line breaks becomes one space) because the file is read line by line.
+- The `files` line gives the number of path lines that follow, so a file whose name starts with `parent ` cannot be mistaken for a header.
+- `log` rebuilds the list by reading `parent` from each metadata file.
+
+**`.minigit/history`**
+```
+UNDO_COUNT <n>
+<commit id | -> <parent id | -> <timestamp | -> <number of staged files>
+<message line (may be empty)>
+<staged file 1>
+...
+REDO_COUNT <m>
+<same entry layout, m times>
+```
+- An empty field is written as `-`.
+- If the file is truncated or edited by hand, loading discards it and starts with an empty history instead of crashing.
 
 ---
 
