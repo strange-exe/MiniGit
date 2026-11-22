@@ -1,0 +1,26 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain versions
+        run: |
+          g++ --version
+          mingw32-make --version
+
+      - name: Build
+        run: mingw32-make -C module all
+
+      - name: Test
+        run: mingw32-make -C module test
