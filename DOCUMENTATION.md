@@ -346,6 +346,25 @@ usage: minigit ignore | minigit ignore <pattern> | minigit ignore -r <pattern> |
    ignore -v <path>     Show whether a path is ignored, and by which line
 ```
 
+### 7. Commit
+```powershell
+minigit add notes.txt
+minigit commit "Add notes"       # or: minigit commit -m "Add notes"
+```
+**Output:**
+```
+[main 1a2b3c4] Add notes
+1 file(s) committed
+```
+The staged files are saved as a snapshot under `.minigit/objects/<commit-id>/`, `HEAD`'s branch is moved to the new commit, and the index is cleared. A message must not be empty, and there must be at least one staged file (otherwise: `fatal: nothing to commit`).
+
+### 8. Undo and Redo
+```powershell
+minigit undo        # same as: minigit commit undo
+minigit redo        # same as: minigit commit redo
+```
+`undo` moves `HEAD` back one commit and restores the staged files from before that commit; `redo` re-applies the commit that was undone. Up to 20 states are kept, and making a new commit clears the redo history. With nothing to undo or redo the command prints `fatal: nothing to undo` or `fatal: nothing to redo`.
+
 ---
 
 ## 5. Rollback Architecture & Semantics
