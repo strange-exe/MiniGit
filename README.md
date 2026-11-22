@@ -11,7 +11,7 @@ Department of Computer Science & Engineering — Graphic Era (Deemed to be Unive
 
 ## 📌 Overview
 
-**MiniGit** is a lightweight, local, terminal-based version control system implemented in C++. Designed as an educational version control system, MiniGit demystifies core VCS concepts—repository initialization, staging areas, ignore rule management, and commit workflows—while directly applying foundational computer science data structures such as **Tries (Prefix Trees)**, an **ordered set**, a **double-ended queue** (undo/redo), and a **doubly linked list** (commit log).
+**MiniGit** is a lightweight, local, terminal-based version control system implemented in C++. Designed as an educational version control system, MiniGit demystifies core VCS concepts—repository initialization, staging areas, ignore rule management, and commit workflows—while directly applying foundational computer science data structures such as **Tries (Prefix Trees)**, an **ordered set**, a **double-ended queue** (undo/redo), a **doubly linked list** (commit log) and a **directed acyclic graph** (commits and branches).
 
 ---
 
@@ -70,6 +70,8 @@ MiniGit follows a modular 5-layer architecture:
 ### Snehil — Commit Log & Checkout Module
 - **`minigit log`**: Rebuilds the history from `HEAD` by following parent links into a **doubly linked list**, then walks it backward (newest first) or forward with `--reverse`.
 - **`minigit checkout <commit-id>`**: Restores the files of any saved commit (full id or a unique prefix of 4+ characters) and leaves `HEAD` detached at it, so no branch moves. Unsaved work (staged, edited or deleted tracked files, untracked files in the way) is checked first and makes it refuse without changing anything. Files are written to temporary copies first and swapped in with backups, so a failure part-way rolls everything back. Ignored files are never touched.
+- **Commit List (`CommitNode`, `CommitLog`)**: Each node holds the commit id, parent, message, timestamp and files, and links to the older and newer commit. The list supports `insert`, `find`, `next` and `prev`; loading it from disk uses a visited set, so a damaged parent cycle cannot loop forever.
+- **Testing**: `test_commitlog` (the list alone), `test_log` (`log` / `log --reverse` over real commits, after undo, on an empty repository) and `test_checkout` (restore, refusal, ignored files, detached-HEAD rules).
 - **Detached HEAD**: `log`, `branch` and `checkout <branch>` work there. `commit`, `undo`, `redo` and `rollback` refuse, because they move a branch; `minigit branch <name>` then `minigit checkout <name>` continues from that commit.
 
 ---
