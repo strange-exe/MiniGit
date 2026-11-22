@@ -160,6 +160,7 @@ Test coverage includes:
 - `test_checkout`: `checkout <commit-id>`: exact restore, unsaved-work refusal, ignored files untouched, deletions honoured, detached-HEAD rules, damaged or unsafe commits rejected without changes.
 - `test_dag`: 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
 - `test_pathutils`: `normalizePath` spellings and trailing slashes, `isOutsideRepo`, and `isSafeRepoPath` (parent-directory escapes, absolute paths, drive letters, `.minigit/` internals).
+- `test_commithistory`: The undo/redo deques on their own: undo and redo order, a new operation clearing redo, the 20-entry limit dropping the oldest entry, `.minigit/history` save and load, older history files, and damaged files being discarded.
 - `test_repoutils`: HEAD parsing (branch, detached, damaged), branch reference helpers, commit metadata parsing and rejection of damaged files, commit id prefix resolution, and the parent-chain walk (overrides, deletions, missing parents, cycles).
 - `test_regression`: One numbered case (`E001`...`E015`) per defect that was found and fixed, so none of them can return unnoticed.
 - `test_integration`: End-to-end scenarios (A-F) that drive the real dispatcher across `init`, `add`, `commit`, branches, rollback and restarts, and check that files, refs and the DAG stay consistent.
@@ -269,6 +270,7 @@ MiniGit/
         ├── test_checkout.cpp # checkout <commit-id> and detached HEAD tests
         ├── test_cli.cpp
         ├── test_commit.cpp
+        ├── test_commithistory.cpp # Undo/redo deques and .minigit/history
         ├── test_commitlog.cpp
         ├── test_dag.cpp     # DAG structure, shared ancestors, cycle detection
         ├── test_common.h    # Shared CHECK macro and CLI-capture helpers
