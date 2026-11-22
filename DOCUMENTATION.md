@@ -447,13 +447,13 @@ In MiniGit's DAG branching architecture:
    - Updates `.minigit/HEAD` to point to `refs/heads/<branch-name>`.
 4. **Delete Branch:** `minigit branch -d <branch-name>`
    - Validates existence and protects against deleting the currently active branch.
-4b. **Restore a Commit (Snehil):** `minigit checkout <commit-id>`
+5. **Restore a Commit (Snehil):** `minigit checkout <commit-id>`
    - Used when the argument is not an existing branch and is 4-40 hex digits (a full id or a unique prefix).
    - Refuses first, changing nothing, if anything would be lost: staged files, edited or deleted tracked files, untracked files in the way.
    - Writes every target file to a temporary copy, then swaps each in with a backup; if any step fails, all of them are undone.
    - Never touches ignored files. Leaves `.minigit/HEAD` holding the commit id (detached), so no branch moves.
    - While detached, `commit`, `undo`, `redo` and `rollback` refuse (they move a branch); `branch <name>` + `checkout <name>` continue from there.
-5. **DAG ASCII Visualization:** `minigit log --all --graph`
+6. **DAG ASCII Visualization:** `minigit log --all --graph`
    - Builds `CommitGraph` across all branches, performs cycle verification, sorts nodes topologically, and renders a visual ASCII DAG indicating branch tips and merge/fork points.
 
 ---
