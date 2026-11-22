@@ -30,6 +30,7 @@
    - [3.2 Staging Index (`.minigit/index`)](#32-staging-index-minigitindex)
    - [3.3 Directed Acyclic Graph (DAG) for Commits and Branches](#33-directed-acyclic-graph-dag-for-commits-and-branches)
    - [3.4 Double-Ended Queue for Undo and Redo](#34-double-ended-queue-for-undo-and-redo)
+   - [3.5 Doubly Linked List for the Commit Log](#35-doubly-linked-list-for-the-commit-log)
 4. [Command Reference & Usage Examples](#4-command-reference--usage-examples)
 5. [Rollback Architecture & Semantics](#5-rollback-architecture--semantics)
 6. [DAG-Based Branch Management](#6-dag-based-branch-management)
@@ -268,6 +269,27 @@ Snehil is responsible for the **commit log** (a doubly linked list), the **`log`
 - **Why a deque:** undo and redo work like a stack at the back ($O(1)$ `push_back` and `pop_back`), but the oldest state must also be dropped from the front ($O(1)$ `pop_front`). A `std::stack` cannot drop its bottom element, and erasing the front of a `std::vector` costs $O(n)$.
 - **Consistency:** each entry stores the commit id together with the staged files, so `HEAD` and the index always change together when a commit is undone or redone.
 - **Persistence:** the deques are saved to `.minigit/history` after every operation (format in section 3.6).
+
+### 3.5 Doubly Linked List for the Commit Log
+- **Headers:** `include/CommitNode.h`, `include/CommitLog.h`
+- **Source:** `src/CommitLog.cpp`
+- **Structure:** a hand-written list in which every `CommitNode` points to the next older commit (`prev`) and the next newer commit (`next`). `head()` is the oldest commit and `tail()` is the newest, which is the commit `HEAD` points to.
+
+```
+nullptr <- [c1] <-> [c2] <-> [c3] <-> [c4] -> nullptr
+           head (oldest)               tail (newest)
+```
+
+| Operation | Cost | Used by |
+|---|---|---|
+| `insert(node)` (append at the tail) | $O(1)$ | `load()` |
+| `find(id)` | $O(n)$ | lookup by exact commit id |
+| `next()` / `prev()` (move the cursor one step) | $O(1)$ | `log --reverse` / `log` |
+| Walk the whole list | $O(n)$ | `log`, `log --reverse` |
+| `load()` | $O(n)$ | every `log` call |
+
+- **Why not a singly linked list:** the first design (Phase 1) used one. With a single direction, one of the two log orders would need an extra reversal or a stack. Two pointers per node make both orders a plain walk.
+- **Building the list:** commits are discovered newest-first by following `parent` links, but inserted oldest-first, so the finished list reads from the first commit to the latest.
 
 ---
 
