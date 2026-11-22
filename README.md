@@ -199,6 +199,8 @@ See [sample_repo/README.md](sample_repo/README.md) for what each step shows.
 
 - [DOCUMENTATION.md](DOCUMENTATION.md): design notes for every module and command.
 - [docs/REPOSITORY_FORMAT.md](docs/REPOSITORY_FORMAT.md): the exact on-disk format of `.minigit/` (HEAD, refs, index, commit objects, history, ignore rules).
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to build, test, name branches and write commits and code for this project.
+- [CHANGELOG.md](CHANGELOG.md): what changed in each project phase.
 
 ---
 
