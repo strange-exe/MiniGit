@@ -161,6 +161,8 @@ Test coverage includes:
 - `test_dag`: 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
 - `test_pathutils`: `normalizePath` spellings and trailing slashes, `isOutsideRepo`, and `isSafeRepoPath` (parent-directory escapes, absolute paths, drive letters, `.minigit/` internals).
 - `test_commithistory`: The undo/redo deques on their own: undo and redo order, a new operation clearing redo, the 20-entry limit dropping the oldest entry, `.minigit/history` save and load, older history files, and damaged files being discarded.
+- `test_fileutils`: `writeFileAtomic` replaces the whole file, keeps binary content as is, ignores a stale temporary file, and leaves nothing behind when it fails.
+- `test_staging`: Staging, unstaging and staged deletions, sorted output, the `deleted:<path>` index format, save and reload, and unsafe or blank index lines being dropped.
 - `test_repoutils`: HEAD parsing (branch, detached, damaged), branch reference helpers, commit metadata parsing and rejection of damaged files, commit id prefix resolution, and the parent-chain walk (overrides, deletions, missing parents, cycles).
 - `test_regression`: One numbered case (`E001`...`E015`) per defect that was found and fixed, so none of them can return unnoticed.
 - `test_integration`: End-to-end scenarios (A-F) that drive the real dispatcher across `init`, `add`, `commit`, branches, rollback and restarts, and check that files, refs and the DAG stay consistent.
@@ -274,6 +276,7 @@ MiniGit/
         ├── test_commitlog.cpp
         ├── test_dag.cpp     # DAG structure, shared ancestors, cycle detection
         ├── test_common.h    # Shared CHECK macro and CLI-capture helpers
+        ├── test_fileutils.cpp   # Atomic file replacement
         ├── test_init.cpp
         ├── test_integration.cpp # End-to-end scenarios A-F
         ├── test_log.cpp
@@ -281,6 +284,7 @@ MiniGit/
         ├── test_repoutils.cpp   # HEAD, commit metadata and history-walk helpers
         ├── test_regression.cpp  # One case per fixed defect (E001-E015)
         ├── test_rollback.cpp # Rollback verification across scenarios
+        ├── test_staging.cpp     # Staging area and index file
         └── test_trie.cpp
 ```
 
