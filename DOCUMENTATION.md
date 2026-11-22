@@ -37,6 +37,7 @@
 5. [Rollback Architecture & Semantics](#5-rollback-architecture--semantics)
 6. [DAG-Based Branch Management](#6-dag-based-branch-management)
 7. [Compilation, Portability & Testing](#7-compilation-portability--testing)
+8. [Error Messages Reference](#8-error-messages-reference)
 
 ---
 
@@ -576,3 +577,22 @@ make test
 - `test_branch`: Verifies branch listing, creation, switching, deletion, active-branch protection, and snapshot reconciliation across branches.
 - `test_checkout`: Verifies `checkout <commit-id>`: exact restore, unsaved-work refusal, ignored files untouched, deletions honoured, detached-HEAD rules, and damaged or unsafe commits rejected without changes.
 - `test_dag`: Verifies 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
+
+---
+
+## 8. Error Messages Reference
+
+Every command prints its error and returns exit code `1`. Success is exit code `0`.
+
+| Message | Command | Cause | What to do |
+|---|---|---|---|
+| `fatal: not a minigit repository (run 'minigit init')` | any | no `.minigit/` folder here | run `minigit init` |
+| `fatal: nothing to commit` | `commit` | the index is empty | `minigit add <file>` first |
+| `fatal: commit message cannot be empty` | `commit` | blank message | pass a message: `minigit commit "text"` |
+| `fatal: '<file>' does not exist` | `commit` | a staged file was deleted from disk | restore it, or `minigit remove <file>` |
+| `fatal: nothing to undo` | `undo` | no earlier state is stored | none; this is the oldest state |
+| `fatal: nothing to redo` | `redo` | nothing was undone since the last commit | none |
+| `No commits yet` | `log` | the repository has no commits | make a first commit |
+| `'<path>' does not exist` | `add` | wrong path | check the spelling |
+| `minigit: '<x>' is not a minigit command. See 'minigit --help'.` | any | unknown command | use the suggested command, or `minigit help` |
+| `usage: minigit <command> ...` | any | wrong arguments | follow the usage line shown |
