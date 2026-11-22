@@ -1,0 +1,7 @@
+# Binary files: never diff or convert line endings.
+*.exe binary
+*.pdf binary
+
+# Keep GitHub's language statistics about the project's own code.
+module/include/ghc/* linguist-vendored
+Reports/* linguist-documentation
