@@ -29,6 +29,7 @@
    - [3.1 Trie (Prefix Tree) for Ignored Files](#31-trie-prefix-tree-for-ignored-files)
    - [3.2 Staging Index (`.minigit/index`)](#32-staging-index-minigitindex)
    - [3.3 Directed Acyclic Graph (DAG) for Commits and Branches](#33-directed-acyclic-graph-dag-for-commits-and-branches)
+   - [3.4 Double-Ended Queue for Undo and Redo](#34-double-ended-queue-for-undo-and-redo)
 4. [Command Reference & Usage Examples](#4-command-reference--usage-examples)
 5. [Rollback Architecture & Semantics](#5-rollback-architecture--semantics)
 6. [DAG-Based Branch Management](#6-dag-based-branch-management)
@@ -255,6 +256,18 @@ Snehil is responsible for the **commit log** (a doubly linked list), the **`log`
   - Cycle detection using 3-color Depth First Search (DFS): guarantees the graph is strictly acyclic ($O(V + E)$).
   - Topological sorting via Kahn's in-degree reduction algorithm with priority queue: linearizes commits such that children always precede ancestors, ensuring deterministic traversal for ASCII graph visualization.
   - Reachability traversal via Breadth First Search (BFS) with `std::unordered_set<std::string>` visited set: prevents duplicate traversal when branches share common ancestors.
+
+### 3.4 Double-Ended Queue for Undo and Redo
+- **Header:** `include/CommitHistory.h`
+- **Source:** `src/CommitHistory.cpp`
+- **Class:** `minigit::CommitHistory`
+- **Structure:** two `std::deque<HistoryEntry>` containers, one for undo states and one for redo states. A `HistoryEntry` holds the commit id, the parent commit id, a snapshot of the staged files, the message and the timestamp.
+- **Recording (`recordOperation`):** called by `commit` before `HEAD` moves. It saves the current state in the undo deque and clears the redo deque, because a new commit ends the redo path. When the undo deque grows past the limit (20, `DEFAULT_HISTORY_LIMIT`), `pop_front()` drops the oldest state.
+- **Undo:** `pop_back()` takes the newest state from the undo deque, and the current state is pushed onto the redo deque.
+- **Redo:** the mirror image: `pop_back()` from the redo deque, and the current state goes back onto the undo deque.
+- **Why a deque:** undo and redo work like a stack at the back ($O(1)$ `push_back` and `pop_back`), but the oldest state must also be dropped from the front ($O(1)$ `pop_front`). A `std::stack` cannot drop its bottom element, and erasing the front of a `std::vector` costs $O(n)$.
+- **Consistency:** each entry stores the commit id together with the staged files, so `HEAD` and the index always change together when a commit is undone or redone.
+- **Persistence:** the deques are saved to `.minigit/history` after every operation (format in section 3.6).
 
 ---
 
