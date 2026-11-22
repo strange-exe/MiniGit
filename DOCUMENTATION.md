@@ -31,7 +31,7 @@
    - [3.3 Directed Acyclic Graph (DAG) for Commits and Branches](#33-directed-acyclic-graph-dag-for-commits-and-branches)
    - [3.4 Double-Ended Queue for Undo and Redo](#34-double-ended-queue-for-undo-and-redo)
    - [3.5 Doubly Linked List for the Commit Log](#35-doubly-linked-list-for-the-commit-log)
-   - [3.6 Commit Object and History File Formats](#36-commit-object-and-history-file-formats)
+   - [3.6 Commit Object Format](#36-commit-object-format)
    - [3.7 Complexity Summary](#37-complexity-summary)
 4. [Command Reference & Usage Examples](#4-command-reference--usage-examples)
 5. [Rollback Architecture & Semantics](#5-rollback-architecture--semantics)
@@ -270,8 +270,9 @@ Snehil is responsible for the **commit log** (a doubly linked list), the **`log`
 - **Undo:** `pop_back()` takes the newest state from the undo deque, and the current state is pushed onto the redo deque.
 - **Redo:** the mirror image: `pop_back()` from the redo deque, and the current state goes back onto the undo deque.
 - **Why a deque:** undo and redo work like a stack at the back ($O(1)$ `push_back` and `pop_back`), but the oldest state must also be dropped from the front ($O(1)$ `pop_front`). A `std::stack` cannot drop its bottom element, and erasing the front of a `std::vector` costs $O(n)$.
-- **Consistency:** each entry stores the commit id together with the staged files, so `HEAD` and the index always change together when a commit is undone or redone.
-- **Persistence:** the deques are saved to `.minigit/history` after every operation (format in section 3.6).
+- **Consistency:** each entry stores the commit id together with the staged files (including staged deletions), so `HEAD` and the index change together when a commit is undone or redone.
+- **Safety check:** each entry also records the `branch` it was made on and the `expectedHead` commit that branch should point to. Before using an entry, `undo` and `redo` verify both. If the active branch differs, or the branch has moved since (a `checkout` or `rollback`), the operation is refused instead of rewriting the branch to a commit from another line of history.
+- **Persistence:** the deques are saved to `.minigit/history` after every operation.
 
 ### 3.5 Doubly Linked List for the Commit Log
 - **Headers:** `include/CommitNode.h`, `include/CommitLog.h`
@@ -294,18 +295,18 @@ nullptr <- [c1] <-> [c2] <-> [c3] <-> [c4] -> nullptr
 - **Why not a singly linked list:** the first design (Phase 1) used one. With a single direction, one of the two log orders would need an extra reversal or a stack. Two pointers per node make both orders a plain walk.
 - **Building the list:** commits are discovered newest-first by following `parent` links, but inserted oldest-first, so the finished list reads from the first commit to the latest.
 
-### 3.6 Commit Object and History File Formats
+### 3.6 Commit Object Format
 
 **Repository layout**
 ```
 .minigit/
 ├── HEAD                     # "ref: refs/heads/main", or a raw commit id when detached
 ├── index                    # staged paths, one per line
-├── history                  # undo/redo deques (format below)
+├── history                  # undo/redo deques
 ├── refs/heads/<branch>      # one file per branch: the tip commit id
 └── objects/<commit-id>/
     ├── metadata             # commit information (format below)
-    └── snapshot/<path>      # the content of every committed file
+    └── snapshot/<path>      # the content of every file saved by this commit
 ```
 
 **`objects/<commit-id>/metadata`**
@@ -313,30 +314,21 @@ nullptr <- [c1] <-> [c2] <-> [c3] <-> [c4] -> nullptr
 commit <40-character SHA-1 id>
 parent <parent id, or "none" for the first commit>
 timestamp <unix time in seconds>
-author <MINIGIT_AUTHOR, USERNAME or USER>
+author <MINIGIT_AUTHOR, USERNAME or USER, else "unknown">
 message <one-line message>
 files <N>
 <path 1>
-<path 2>
+...
+deleted <M>              (only when the commit deletes files)
+<deleted path 1>
 ...
 ```
-- The commit id is the SHA-1 of the parent id, the timestamp, the message, and every file's name, size and content, so the same input always produces the same id.
+- `files` counts only the files added or changed by this commit; deletions are listed separately in the optional `deleted` block.
+- The commit id is the SHA-1 of the parent id, the timestamp, the message, each file's name, size and content, and a `delete <path>` line for every staged deletion. The same input always produces the same id.
 - A multi-line message is flattened to one line (each run of line breaks becomes one space) because the file is read line by line.
-- The `files` line gives the number of path lines that follow, so a file whose name starts with `parent ` cannot be mistaken for a header.
+- Snapshots are written first and the `metadata` file last, atomically. Its presence marks the commit as complete, so an interrupted commit is never mistaken for a valid one, and a half-written commit is removed again.
+- If an identical commit (same parent, time, message and content) is already stored, it is reused.
 - `log` rebuilds the list by reading `parent` from each metadata file.
-
-**`.minigit/history`**
-```
-UNDO_COUNT <n>
-<commit id | -> <parent id | -> <timestamp | -> <number of staged files>
-<message line (may be empty)>
-<staged file 1>
-...
-REDO_COUNT <m>
-<same entry layout, m times>
-```
-- An empty field is written as `-`.
-- If the file is truncated or edited by hand, loading discards it and starts with an empty history instead of crashing.
 
 ### 3.7 Complexity Summary
 
@@ -452,14 +444,14 @@ minigit commit "Add notes"       # or: minigit commit -m "Add notes"
 [main 1a2b3c4] Add notes
 1 file(s) committed
 ```
-The staged files are saved as a snapshot under `.minigit/objects/<commit-id>/`, `HEAD`'s branch is moved to the new commit, and the index is cleared. A message must not be empty, and there must be at least one staged file (otherwise: `fatal: nothing to commit`).
+The staged files (and any staged deletions) are saved as a snapshot under `.minigit/objects/<commit-id>/`, the active branch is moved to the new commit, and the index is cleared. A message must not be empty, and at least one file or deletion must be staged (otherwise: `fatal: nothing to commit`). A commit is refused while `HEAD` is detached, because it would belong to no branch.
 
 ### 8. Undo and Redo
 ```powershell
 minigit undo        # same as: minigit commit undo
 minigit redo        # same as: minigit commit redo
 ```
-`undo` moves `HEAD` back one commit and restores the staged files from before that commit; `redo` re-applies the commit that was undone. Up to 20 states are kept, and making a new commit clears the redo history. With nothing to undo or redo the command prints `fatal: nothing to undo` or `fatal: nothing to redo`.
+`undo` moves the active branch back one commit and restores the staged files from before that commit; `redo` re-applies the commit that was undone. Up to 20 states are kept, and making a new commit clears the redo history. Each saved state remembers its branch and the commit that branch pointed to, so undo and redo only work on that branch and only while it has not moved. After a `checkout` or `rollback`, or on another branch, they print `nothing to undo here: <reason>` or `nothing to redo here: <reason>`. With nothing stored at all the message is `fatal: nothing to undo` or `fatal: nothing to redo`.
 
 ### 9. Log
 ```powershell
