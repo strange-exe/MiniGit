@@ -59,6 +59,23 @@ int main() {
     CHECK(t.empty());
     CHECK(!t.findMatch("anything", m));
 
+    // nested rules: a directory rule and a file rule under it
+    Trie n;
+    CHECK(n.insert("a/", "a/", 1, true));
+    CHECK(n.insert("a/b.txt", "a/b.txt", 2, false));
+    CHECK(n.size() == 2);
+    CHECK(n.findMatch("a/b.txt", m) && m.pattern == "a/" && m.line == 1);  // shortest rule on the path wins
+    CHECK(!n.search("a"));                                                 // a prefix of a key is not a key
+    CHECK(!n.remove("a"));                                                 // ...and cannot be removed
+    CHECK(n.size() == 2);
+    CHECK(n.remove("a/b.txt"));                                            // inner rule removed, outer kept
+    CHECK(n.findMatch("a/c.txt", m) && m.pattern == "a/");
+    CHECK(n.insert("a/b.txt", "a/b.txt", 3, false));
+    CHECK(n.remove("a/"));                                                 // outer removed, inner kept
+    CHECK(!n.findMatch("a/c.txt", m));
+    CHECK(n.findMatch("a/b.txt", m) && m.line == 3);
+    CHECK(n.remove("a/b.txt") && n.empty());
+    
     // path normalization
     CHECK(normalizePath(".\\src\\a.txt") == "src/a.txt");
     CHECK(normalizePath("./src/a.txt") == "src/a.txt");

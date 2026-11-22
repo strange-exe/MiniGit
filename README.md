@@ -50,10 +50,13 @@ MiniGit follows a modular 5-layer architecture:
 - **Ignore CLI Interface**: Validates `ignore`, `ignore -r` and `ignore -v` input; rejects empty patterns and anything outside the repository (`..`, absolute paths, drive letters).
 - **First-Run Self-Installation**: Copies the executable into the user's `PATH` on first run, and refreshes that copy when a newer build is run.
 
-### Sparsh — Trie & Staging Area Module
-- **Trie (Prefix Tree) Engine**: Dual-Trie architecture for fast $O(L)$ pattern matching without disk scans.
-- **Staging Area (`.minigit/index`)**: Holds one normalized relative path per line with duplicate staging prevention.
-- **Add Operations**: Supports single file tracking (`add <file>`), batch repository staging (`add .`), and unstaging (`remove <file|dir|.>`).
+### Sparsh — Ignore Engine, Trie Architecture & Staging Area
+- **Dual-Trie Ignore Engine**: A forward Trie handles file paths and directory rules, while a reversed Trie handles extension patterns such as `*.cpp`, giving $O(L)$ matching without scanning the disk.
+- **`.minigitignore` Management**: Supports adding, removing and evaluating rules through `ignore`, `ignore -r` and `ignore -v`. Stores the line number of each rule, tolerates CRLF line endings, and always excludes the internal `.minigit/` directory.
+- **Path & Directory Matching**: Handles exact paths, directory-prefix rules and extensions, and enforces directory boundaries so `build/` does not match `buildings/`.
+- **Staging Area (`.minigit/index`)**: Keeps normalized repository-relative paths in a `std::set` to prevent duplicates, with persistent storage and unstaging through `remove <file|dir|.>`.
+- **Recursive Add**: `add <file|dir>` and `add .` walk directories recursively, check ignore rules before staging, and skip ignored directories entirely.
+- **Testing**: `test_trie` and `test_add` cover Trie operations, extension patterns, directory boundaries, duplicate staging, rule removal and CRLF handling.
 
 ### Krish — Commit & Undo/Redo Module
 - **`minigit commit`**: Saves each staged file's content under `.minigit/objects/<id>/snapshot/`, writes `metadata` (parent, timestamp, author, message, files) and moves `HEAD`. The commit id is a SHA-1 of that content.
@@ -125,6 +128,54 @@ Used for instant, deterministic pattern matching to block ignored files from sta
 | `minigit help [<command>]` | command table | Lists every command, or the usage of one (`minigit <command> --help` also works) |
 | `minigit install` | `CLI::install()` | Manually copies `minigit` into the user's `PATH` |
 | `minigit uninstall` | `CLI::uninstall()` | Removes `minigit` from user `PATH` |
+
+## 📘 Staging & Ignore Guide
+
+### Staging files with `add`
+`add` copies nothing; it only records normalized relative paths in `.minigit/index`. Ignore rules are checked first, and ignored directories are skipped without being walked.
+
+```bash
+minigit add main.cpp        # Staged 'main.cpp'
+minigit add src             # staged 3 file(s), 0 already staged, skipped 0 ignored
+minigit add .               # staged 2 file(s), 3 already staged, skipped 1 ignored
+minigit add secret.txt      # 'secret.txt' is ignored by 'secret.txt' (line 2)
+minigit add -v main.cpp     # 'main.cpp' is staged
+```
+
+Staging a file twice never creates a duplicate entry, and a path that does not exist is reported as `'<path>' does not exist`.
+
+### Unstaging with `remove`
+`remove` only edits the index. Your working files are never touched.
+
+```bash
+minigit remove main.cpp     # Unstaged 'main.cpp'
+minigit remove src          # Unstaged 3 files
+minigit remove .            # Unstaged 5 files   (clears the whole staging area)
+minigit remove notes.txt    # 'notes.txt' is not staged
+```
+
+If a staged file was deleted from disk, `add` records that as a staged deletion (`Staged deletion of '<file>'`), so the next commit removes it from the snapshot.
+
+### Managing ignore rules with `ignore`
+Rules live in `.minigitignore`, one per line. `#` starts a comment. Three rule types are supported:
+
+| Rule | Example | Matches |
+|------|---------|---------|
+| Extension | `*.log` | Any file ending in `.log`, at any depth |
+| File path | `secret.txt` | That exact path |
+| Directory | `build/` | Everything under `build/`, but not `buildings/` |
+
+Negation (`!keep.txt`) and other wildcards (`a/*.txt`) are rejected with a clear message instead of being silently ignored. `.minigit/` is always excluded.
+
+```bash
+minigit ignore                  # lists rules:  1: *.log   2: build/
+minigit ignore "*.tmp"          # Ignored '*.tmp' (line 3)
+minigit ignore -v build/x.o     # 'build/x.o' is ignored by 'build/' (line 2)
+minigit ignore -v main.cpp      # 'main.cpp' is not ignored
+minigit ignore -r "*.tmp"       # Removed '*.tmp' (was line 3)
+```
+
+Removing a rule shifts later line numbers up, and the Tries are rebuilt so `ignore -v` always reports the correct line.
 
 ---
 

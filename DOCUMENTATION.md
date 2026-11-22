@@ -16,6 +16,9 @@
    - [2.3 Status & Error Mapping (`IS_STAGED`)](#23-status--error-mapping-is_staged)
    - [2.4 `.minigitignore` CLI & Validation](#24-minigitignore-cli--validation)
    - [2.5 Zero-Config First-Run Self-Installation](#25-zero-config-first-run-self-installation)
+
+2B. [Sparsh's Responsibilities & Implementation](#2b-sparshs-responsibilities--implementation)
+
 3. [Core Data Structures](#3-core-data-structures)
    - [3.1 Trie (Prefix Tree) for Ignored Files](#31-trie-prefix-tree-for-ignored-files)
    - [3.2 Staging Index (`.minigit/index`)](#32-staging-index-minigitindex)
@@ -123,6 +126,36 @@ To solve PowerShell's restriction requiring `.\` for current-directory binaries:
 - **Where it runs:** self-install is called from `main()`, not from `CLI::dispatch()`. The test programs call `dispatch()` directly, so they can never install themselves as `minigit`.
 - On Linux/macOS the running binary is located through `/proc/self/exe`, not the current working directory.
 
+## 2B. Sparsh's Responsibilities & Implementation
+
+Sparsh is responsible for the **Ignore Engine (Dual Trie)**, **`.minigitignore` management**, and the **Staging Area** with the `add` and `remove` commands.
+
+### 2B.1 Ignore Engine
+- **Headers:** `include/Trie.h`, `include/IgnoreManager.h`
+- **Sources:** `src/Trie.cpp`, `src/IgnoreManager.cpp`
+- **`Trie`:** a pure data structure with no file I/O. It provides `insert`, `search`, `find`, `remove` (with pruning) and `findMatch`. See section 3.1 for its internals.
+- **`IgnoreManager`:** loads `.minigitignore`, parses each line into an extension, file or directory rule, and keeps one forward Trie and one reversed-extension Trie in sync with the file.
+  - `addPattern` rejects invalid or unsupported patterns (negation `!`, wildcards other than `*.ext`) with a clear message, and reports a rule that already exists with its line number.
+  - `removePattern` deletes the line and rebuilds both Tries so stored line numbers stay correct. If the path is ignored through a different rule, it names that rule.
+  - `verify` / `isIgnored` return the matching rule and its line number, and apply the built-in `.minigit/` rule.
+- **File handling:** CRLF line endings are tolerated, comments (`#`) and blank lines are skipped, and the file is written atomically so a failed write keeps the old rules.
+
+### 2B.2 Staging Area
+- **Header / Source:** `include/StagingArea.h`, `src/StagingArea.cpp`
+- Keeps staged files and staged deletions in two `std::set` containers and persists them to `.minigit/index`. The file format and safe-loading rules are in section 3.2.
+- **Path normalization:** `normalizePath()` in `include/PathUtils.h` converts `\` to `/`, removes `./`, and makes absolute paths repository-relative. Every module that handles paths uses it.
+
+### 2B.3 Add and Remove
+- **Header / Source:** `include/AddCommand.h`, `src/AddCommand.cpp`
+- `addFile` stages one file, or a directory recursively. `addAll` stages the whole repository. `addVerify` backs `add -v`. `removeFile` unstages a file, a directory or everything (`remove .`).
+- During a recursive walk, each path is checked against the ignore rules first. An ignored directory is skipped as a whole (`disable_recursion_pending`), so its contents are never visited. A file that is already tracked stays stageable even if a later rule would ignore it.
+- A tracked file that was deleted from disk is staged as a deletion (`deleted:<path>`), so the next commit removes it from the snapshot.
+- Results come back as `AddResult` / `IgnoreResult` structs, and only the CLI prints them.
+
+### 2B.4 Tests
+- `test_trie`: insert/search, duplicate and empty keys, directory boundaries, exact-path rules, extension rules and node pruning.
+- `test_add`: staging, duplicate prevention, ignore enforcement and persistence across runs.
+
 ---
 
 ## 3. Core Data Structures
@@ -145,11 +178,28 @@ To solve PowerShell's restriction requiring `.\` for current-directory binaries:
    - Each terminal node retains the 1-based line number of `.minigitignore`.
    - `minigit ignore -v` queries the Trie and prints the exact line that blocked the file.
 
+#### How the Trie Works Internally
+- **Node layout:** each node holds a `std::map<char, unique_ptr<Node>>` of children, a `terminal` flag, a `prefixRule` flag, the 1-based `line`, and the rule text as written (`pattern`).
+- **`insert(key, pattern, line, prefixRule)`:** walks or creates one node per character and marks the last node terminal. It returns `false` for an empty key or a key that already exists, so the same rule is never stored twice.
+- **`search(key)` / `find(key)`:** exact lookup. A prefix of a stored key is not a match, so `secret` does not match the rule `secret.txt`.
+- **`findMatch(text)`:** walks `text` once. It matches as soon as it passes a terminal node marked `prefixRule` (a `build/` directory rule), or when it reaches the end of the text on a terminal node (an exact file rule). Cost is $O(L)$ and does not depend on how many rules exist.
+- **`remove(key)`:** clears the terminal node, then walks back up and deletes every node left with no children and no rule. The Trie never keeps dead branches after `ignore -r`.
+
+#### Matching Rules and Precedence
+- **Directory boundaries:** directory rules are stored with the trailing `/`, so `build/` matches `build/x.o` but not `buildings/a.cpp`.
+- **Extension rules:** the rule `*.log` is stored as the reversed key `gol.`, and the path being checked is reversed too. The same prefix walk then finds the extension, at any depth.
+- **Both Tries can match:** a path such as `build/app.log` may match a directory rule and an extension rule. `ignore -v` reports the rule with the **lower line number**, so the answer is deterministic.
+- **Built-in rule:** `.minigit/` is always ignored, even though it is not written in `.minigitignore`. `ignore -v` reports it as `built-in rule`.
+- **Line numbers stay correct:** removing a rule shifts later lines up, so `IgnoreManager` rebuilds both Tries from the file after every removal.
+
 ### 3.2 Staging Index (`.minigit/index`)
 - **Header:** `include/StagingArea.h`
 - **Source:** `src/StagingArea.cpp`
-- **Disk Format:** Plain text file `.minigit/index` holding one path per line.
-- **In-Memory Cache:** `std::set<std::string>` (red-black tree) enforces sorted order and provides $O(\log n)$ duplicate staging prevention.
+- **Disk Format:** plain text file `.minigit/index` holding one normalized, repository-relative path per line (always `/` separators, so `.\src\a.txt` and `src/a.txt` become the same entry). Files staged for deletion are written as `deleted:<path>`.
+- **In-Memory Cache:** two `std::set<std::string>` containers (red-black trees), one for staged files and one for staged deletions. They enforce sorted order and give $O(\log n)$ duplicate prevention and status checks.
+- **Staging and unstaging:** `stage()` and `unstage()` change memory only, and `save()` writes the file. Staging a path that is already staged returns `false` instead of adding a duplicate. Staging a file that was marked for deletion cancels the deletion.
+- **Safe loading:** `load()` tolerates CRLF line endings and skips blank lines. It also skips any entry that is absolute, contains `..`, or points inside `.minigit/`, so a hand-edited or damaged index cannot reach outside the working tree.
+- **Safe saving:** `save()` writes through `writeFileAtomic`, so a failed write leaves the previous index intact.
 
 ### 3.3 Directed Acyclic Graph (DAG) for Commits and Branches
 - **Header:** `include/CommitGraph.h`
