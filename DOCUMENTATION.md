@@ -44,6 +44,7 @@ MiniGit is a local, lightweight version-control tool developed in C++ to demonst
 - Blocking untracked files through prefix-tree pattern matching (`.minigitignore`).
 - Querying staging status in $O(\log n)$ (ordered set) and ignore status in $O(L)$ (Trie) time.
 - Recording commits, undoing/redoing them (double-ended queue) and listing history (doubly linked list).
+- Restoring any saved commit, branching on a commit graph (DAG) and rolling a branch back to an earlier commit.
 
 ---
 
