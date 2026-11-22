@@ -347,6 +347,7 @@ make test
 - `test_branch`: Verifies branch listing, creation, switching, deletion, active-branch protection, and snapshot reconciliation across branches.
 - `test_checkout`: Verifies `checkout <commit-id>`: exact restore, unsaved-work refusal, ignored files untouched, deletions honoured, detached-HEAD rules, and damaged or unsafe commits rejected without changes.
 - `test_dag`: Verifies 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
+- `test_pathutils`: Verifies that every spelling of a path normalizes to one form, that a trailing `/` survives, and that `isOutsideRepo` / `isSafeRepoPath` reject `..` escapes, absolute paths, drive letters and anything inside `.minigit/`.
 - `test_regression`: Holds one numbered case (`E001`...`E015`) for each defect that was found and fixed (path escapes, damaged `HEAD`, truncated metadata, keyword-like file names, Windows-unsafe branch names, non-atomic writes and so on), so a fixed defect cannot return unnoticed.
 - `test_integration`: Verifies whole workflows through the real dispatcher (scenarios A-F): stage and commit, divergent branches, rollback, undo/redo mixed with branch switching, restarts, and rejected invalid operations. It checks that files, refs, history and the DAG agree after every step.
 
