@@ -32,6 +32,7 @@
    - [3.4 Double-Ended Queue for Undo and Redo](#34-double-ended-queue-for-undo-and-redo)
    - [3.5 Doubly Linked List for the Commit Log](#35-doubly-linked-list-for-the-commit-log)
    - [3.6 Commit Object and History File Formats](#36-commit-object-and-history-file-formats)
+   - [3.7 Complexity Summary](#37-complexity-summary)
 4. [Command Reference & Usage Examples](#4-command-reference--usage-examples)
 5. [Rollback Architecture & Semantics](#5-rollback-architecture--semantics)
 6. [DAG-Based Branch Management](#6-dag-based-branch-management)
@@ -335,6 +336,20 @@ REDO_COUNT <m>
 ```
 - An empty field is written as `-`.
 - If the file is truncated or edited by hand, loading discards it and starts with an empty history instead of crashing.
+
+### 3.7 Complexity Summary
+
+| Feature | Data structure | Operation | Cost |
+|---|---|---|---|
+| Ignore rules | Forward Trie | check a path of length $L$ | $O(L)$ |
+| Ignore rules | Reversed extension Trie | check an extension of length $E$ | $O(E)$ |
+| Staging area | `std::set` | stage, unstage, status check | $O(\log n)$ |
+| Undo / redo | `std::deque` | record, undo, redo, drop oldest | $O(1)$ |
+| Commit log | Doubly linked list | append, next, prev | $O(1)$ |
+| Commit log | Doubly linked list | find by id, full walk | $O(n)$ |
+| Commit graph | DAG (adjacency list) | BFS / reachability | $O(V + E)$ |
+| Commit graph | DAG (adjacency list) | cycle detection (3-colour DFS) | $O(V + E)$ |
+| Commit graph | DAG (adjacency list) | topological sort with a priority queue | $O(V \\log V + E)$ |
 
 ---
 
