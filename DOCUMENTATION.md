@@ -365,6 +365,28 @@ minigit redo        # same as: minigit commit redo
 ```
 `undo` moves `HEAD` back one commit and restores the staged files from before that commit; `redo` re-applies the commit that was undone. Up to 20 states are kept, and making a new commit clears the redo history. With nothing to undo or redo the command prints `fatal: nothing to undo` or `fatal: nothing to redo`.
 
+### 9. Log
+```powershell
+minigit log             # newest commit first
+minigit log --reverse   # oldest commit first
+```
+**Output (one block per commit):**
+```
+commit 1a2b3c4
+parent  9f8e7d6
+date    2026-05-02 14:03:11
+
+    Add notes
+    (1 file(s))
+```
+The first commit has no `parent` line. An empty repository prints `No commits yet`.
+
+### 10. Restore a Commit
+```powershell
+minigit checkout 1a2b3c4      # a full id or a unique prefix of at least 4 characters
+```
+Replaces the tracked files in the working folder with the snapshot of that commit and detaches `HEAD` at it. Nothing is changed if staged files, edited or deleted tracked files, or untracked files in the way would be lost. Ignored files are never touched. Full rules: section 2C.3 and section 6.2, item 5.
+
 ---
 
 ## 5. Rollback Architecture & Semantics
