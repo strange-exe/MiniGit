@@ -19,6 +19,12 @@
 
 2B. [Sparsh's Responsibilities & Implementation](#2b-sparshs-responsibilities--implementation)
 
+2C. [Snehil's Responsibilities & Implementation](#2c-snehils-responsibilities--implementation)
+   - [2C.1 Commit Log (Doubly Linked List)](#2c1-commit-log-doubly-linked-list)
+   - [2C.2 The `log` Command](#2c2-the-log-command)
+   - [2C.3 Restoring a Commit (`checkout <commit-id>`)](#2c3-restoring-a-commit-checkout-commit-id)
+   - [2C.4 Tests](#2c4-tests)
+
 3. [Core Data Structures](#3-core-data-structures)
    - [3.1 Trie (Prefix Tree) for Ignored Files](#31-trie-prefix-tree-for-ignored-files)
    - [3.2 Staging Index (`.minigit/index`)](#32-staging-index-minigitindex)
