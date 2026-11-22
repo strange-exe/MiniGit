@@ -162,6 +162,43 @@ Sparsh is responsible for the **Ignore Engine (Dual Trie)**, **`.minigitignore` 
 - `test_trie`: insert/search, duplicate and empty keys, directory boundaries, exact-path rules, extension rules and node pruning.
 - `test_add`: staging, duplicate prevention, ignore enforcement and persistence across runs.
 
+## 2C. Snehil's Responsibilities & Implementation
+
+Snehil is responsible for the **commit log** (a doubly linked list), the **`log` command**, and **`checkout <commit-id>`**, which restores the files of a saved commit.
+
+### 2C.1 Commit Log (Doubly Linked List)
+- **Headers:** `include/CommitNode.h`, `include/CommitLog.h`
+- **Source:** `src/CommitLog.cpp`
+- **`CommitNode`:** one commit, filled from `.minigit/objects/<id>/metadata`. It holds `id`, `parentId` (empty for the first commit), `message`, `timestamp` and the list of `files`, plus two pointers: `prev` (the older commit) and `next` (the newer commit).
+- **`CommitLog`:** owns the list and a cursor. The oldest commit is `head()` and the newest is `tail()`.
+  - `insert(node)` appends a commit as the newest node in $O(1)$.
+  - `find(id)` looks a commit up by exact id, walking from the oldest node in $O(n)$.
+  - `next()` and `prev()` move the cursor toward newer or older commits and return `nullptr` (without moving) at either end. `resetToHead()` and `resetToTail()` position the cursor before a walk.
+  - `load()` rebuilds the list from disk. It reads `HEAD` (a branch reference or a raw commit id), then follows each `parent` line in the metadata from the newest commit back to the first, and inserts the commits oldest-first.
+- **Safety:** `load()` keeps a visited set, so a damaged parent cycle cannot loop forever, and it stops at the first unreadable commit instead of crashing. A repository with no commits loads as an empty list.
+- **Why a doubly linked list:** `log` needs the history in both directions. Because every node links to its older and newer neighbour, newest-first and oldest-first are each a single $O(n)$ walk from one end, with no sorting and no copy into an array.
+
+### 2C.2 The `log` Command
+- **Header / Source:** `include/LogCommand.h`, `src/LogCommand.cpp`
+- `showLog(root, reverse)` returns a `LogResult` with a status (`OK`, `EMPTY`, `NOT_A_REPO`, `ERROR`) and a list of `LogEntry` values (`commitId`, `parentId`, `message`, `timestamp`, `fileCount`). Like every other module it never prints; only the CLI does.
+- **Newest first (default):** the cursor starts at `tail()` and walks backward with `prev()`.
+- **Oldest first (`--reverse`):** the cursor starts at `head()` and walks forward with `next()`.
+- `formatTimestamp()` turns the stored unix time into `YYYY-MM-DD HH:MM:SS` (local time).
+- The graph form of the log (`log --all --graph`) is described in section 6.2.
+
+### 2C.3 Restoring a Commit (`checkout <commit-id>`)
+- **Header / Source:** `include/RestoreCommand.h`, `src/RestoreCommand.cpp`
+- Restores the working folder to the snapshot stored in `.minigit/objects/<commit-id>/snapshot/`. The argument may be a full 40-character id or a unique prefix of at least 4 characters.
+- The safety checks, the temporary-copy-and-backup restore, the handling of ignored files and the detached-HEAD rules are described step by step in section 6.2, item 5.
+- It is the other half of rollback: `checkout <commit-id>` leaves every branch where it is, whereas `rollback <commit-id>` moves the active branch (section 5).
+
+### 2C.4 Tests
+- `test_commitlog`: the list on its own: insert, find, next, prev, and behaviour at both ends.
+- `test_log`: `log` and `log --reverse` over real commits, after an undo, on an empty repository, and through the CLI.
+- `test_checkout`: exact restore, refusal when work would be lost, ignored files untouched, deletions honoured, detached-HEAD rules, and damaged or unsafe commits rejected without changing anything.
+
+---
+
 ---
 
 ## 3. Core Data Structures
