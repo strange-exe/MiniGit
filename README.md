@@ -159,6 +159,8 @@ Test coverage includes:
 - `test_branch`: Branch listing, creation, switching, deletion, active-branch protection, and snapshot reconciliation across branches.
 - `test_checkout`: `checkout <commit-id>`: exact restore, unsaved-work refusal, ignored files untouched, deletions honoured, detached-HEAD rules, damaged or unsafe commits rejected without changes.
 - `test_dag`: 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
+- `test_regression`: One numbered case (`E001`...`E015`) per defect that was found and fixed, so none of them can return unnoticed.
+- `test_integration`: End-to-end scenarios (A-F) that drive the real dispatcher across `init`, `add`, `commit`, branches, rollback and restarts, and check that files, refs and the DAG stay consistent.
 
 ### Cleaning Build Files
 ```bash
@@ -196,7 +198,7 @@ See [sample_repo/README.md](sample_repo/README.md) for what each step shows.
 ## 📂 Repository Structure
 
 ```
-MiniGit-CLI/
+MiniGit/
 ├── .gitignore               # Ignores build artifacts, temporary test files, and local repo state
 ├── LICENSE                  # MIT License
 ├── Makefile                 # Top-level build orchestration
@@ -220,6 +222,7 @@ MiniGit-CLI/
     │   ├── CommitHistory.h  # Undo/redo deques (.minigit/history)
     │   ├── CommitLog.h      # Doubly linked list over commits
     │   ├── CommitNode.h     # One commit (list node)
+    │   ├── FileUtils.h      # Atomic file replacement (writeFileAtomic)
     │   ├── IgnoreManager.h  # .minigitignore parser & Trie bridge
     │   ├── InitCommand.h    # initRepo interface
     │   ├── LogCommand.h     # log / log --reverse / log --all --graph interface
@@ -257,8 +260,11 @@ MiniGit-CLI/
         ├── test_commit.cpp
         ├── test_commitlog.cpp
         ├── test_dag.cpp     # DAG structure, shared ancestors, cycle detection
+        ├── test_common.h    # Shared CHECK macro and CLI-capture helpers
         ├── test_init.cpp
+        ├── test_integration.cpp # End-to-end scenarios A-F
         ├── test_log.cpp
+        ├── test_regression.cpp  # One case per fixed defect (E001-E015)
         ├── test_rollback.cpp # Rollback verification across scenarios
         └── test_trie.cpp
 ```
