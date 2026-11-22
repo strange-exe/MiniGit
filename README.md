@@ -160,6 +160,7 @@ Test coverage includes:
 - `test_checkout`: `checkout <commit-id>`: exact restore, unsaved-work refusal, ignored files untouched, deletions honoured, detached-HEAD rules, damaged or unsafe commits rejected without changes.
 - `test_dag`: 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
 - `test_pathutils`: `normalizePath` spellings and trailing slashes, `isOutsideRepo`, and `isSafeRepoPath` (parent-directory escapes, absolute paths, drive letters, `.minigit/` internals).
+- `test_repoutils`: HEAD parsing (branch, detached, damaged), branch reference helpers, commit metadata parsing and rejection of damaged files, commit id prefix resolution, and the parent-chain walk (overrides, deletions, missing parents, cycles).
 - `test_regression`: One numbered case (`E001`...`E015`) per defect that was found and fixed, so none of them can return unnoticed.
 - `test_integration`: End-to-end scenarios (A-F) that drive the real dispatcher across `init`, `add`, `commit`, branches, rollback and restarts, and check that files, refs and the DAG stay consistent.
 
@@ -275,6 +276,7 @@ MiniGit/
         ├── test_integration.cpp # End-to-end scenarios A-F
         ├── test_log.cpp
         ├── test_pathutils.cpp   # Path normalization and repository-escape checks
+        ├── test_repoutils.cpp   # HEAD, commit metadata and history-walk helpers
         ├── test_regression.cpp  # One case per fixed defect (E001-E015)
         ├── test_rollback.cpp # Rollback verification across scenarios
         └── test_trie.cpp
