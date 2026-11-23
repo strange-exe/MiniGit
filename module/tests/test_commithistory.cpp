@@ -100,13 +100,14 @@ static void testNewOperationClearsRedo() {
 
 static void testHistoryLimit() {
     freshRoot();
-    CommitHistory small(kRoot, 3);
-    CHECK(small.historyLimit() == 3);
-    for (int i = 1; i <= 5; ++i) small.recordOperation(entry("c" + std::to_string(i)));
-    CHECK(small.undoDeque().size() == 3);
+    // Not named `small`: the Windows headers define `small` as a macro for `char`.
+    CommitHistory limited(kRoot, 3);
+    CHECK(limited.historyLimit() == 3);
+    for (int i = 1; i <= 5; ++i) limited.recordOperation(entry("c" + std::to_string(i)));
+    CHECK(limited.undoDeque().size() == 3);
     // The oldest entries leave from the front (pop_front); the newest stay.
-    CHECK(small.undoDeque().front().commitId == "c3");
-    CHECK(small.undoDeque().back().commitId == "c5");
+    CHECK(limited.undoDeque().front().commitId == "c3");
+    CHECK(limited.undoDeque().back().commitId == "c5");
 
     freshRoot();
     CommitHistory big(kRoot);
