@@ -19,14 +19,25 @@
 
 2B. [Sparsh's Responsibilities & Implementation](#2b-sparshs-responsibilities--implementation)
 
+2C. [Snehil's Responsibilities & Implementation](#2c-snehils-responsibilities--implementation)
+   - [2C.1 Commit Log (Doubly Linked List)](#2c1-commit-log-doubly-linked-list)
+   - [2C.2 The `log` Command](#2c2-the-log-command)
+   - [2C.3 Restoring a Commit (`checkout <commit-id>`)](#2c3-restoring-a-commit-checkout-commit-id)
+   - [2C.4 Tests](#2c4-tests)
+
 3. [Core Data Structures](#3-core-data-structures)
    - [3.1 Trie (Prefix Tree) for Ignored Files](#31-trie-prefix-tree-for-ignored-files)
    - [3.2 Staging Index (`.minigit/index`)](#32-staging-index-minigitindex)
    - [3.3 Directed Acyclic Graph (DAG) for Commits and Branches](#33-directed-acyclic-graph-dag-for-commits-and-branches)
+   - [3.4 Double-Ended Queue for Undo and Redo](#34-double-ended-queue-for-undo-and-redo)
+   - [3.5 Doubly Linked List for the Commit Log](#35-doubly-linked-list-for-the-commit-log)
+   - [3.6 Commit Object Format](#36-commit-object-format)
+   - [3.7 Complexity Summary](#37-complexity-summary)
 4. [Command Reference & Usage Examples](#4-command-reference--usage-examples)
 5. [Rollback Architecture & Semantics](#5-rollback-architecture--semantics)
 6. [DAG-Based Branch Management](#6-dag-based-branch-management)
 7. [Compilation, Portability & Testing](#7-compilation-portability--testing)
+8. [Error Messages Reference](#8-error-messages-reference)
 
 ---
 
@@ -38,6 +49,7 @@ MiniGit is a local, lightweight version-control tool developed in C++ to demonst
 - Blocking untracked files through prefix-tree pattern matching (`.minigitignore`).
 - Querying staging status in $O(\log n)$ (ordered set) and ignore status in $O(L)$ (Trie) time.
 - Recording commits, undoing/redoing them (double-ended queue) and listing history (doubly linked list).
+- Restoring any saved commit, branching on a commit graph (DAG) and rolling a branch back to an earlier commit.
 
 ---
 
@@ -156,6 +168,43 @@ Sparsh is responsible for the **Ignore Engine (Dual Trie)**, **`.minigitignore` 
 - `test_trie`: insert/search, duplicate and empty keys, directory boundaries, exact-path rules, extension rules and node pruning.
 - `test_add`: staging, duplicate prevention, ignore enforcement and persistence across runs.
 
+## 2C. Snehil's Responsibilities & Implementation
+
+Snehil is responsible for the **commit log** (a doubly linked list), the **`log` command**, and **`checkout <commit-id>`**, which restores the files of a saved commit.
+
+### 2C.1 Commit Log (Doubly Linked List)
+- **Headers:** `include/CommitNode.h`, `include/CommitLog.h`
+- **Source:** `src/CommitLog.cpp`
+- **`CommitNode`:** one commit, filled from `.minigit/objects/<id>/metadata`. It holds `id`, `parentId` (empty for the first commit), `message`, `timestamp` and the list of `files`, plus two pointers: `prev` (the older commit) and `next` (the newer commit).
+- **`CommitLog`:** owns the list and a cursor. The oldest commit is `head()` and the newest is `tail()`.
+  - `insert(node)` appends a commit as the newest node in $O(1)$.
+  - `find(id)` looks a commit up by exact id, walking from the oldest node in $O(n)$.
+  - `next()` and `prev()` move the cursor toward newer or older commits and return `nullptr` (without moving) at either end. `resetToHead()` and `resetToTail()` position the cursor before a walk.
+  - `load()` rebuilds the list from disk. It reads `HEAD` (a branch reference or a raw commit id), then follows each `parent` line in the metadata from the newest commit back to the first, and inserts the commits oldest-first.
+- **Safety:** `load()` keeps a visited set, so a damaged parent cycle cannot loop forever, and it stops at the first unreadable commit instead of crashing. A repository with no commits loads as an empty list.
+- **Why a doubly linked list:** `log` needs the history in both directions. Because every node links to its older and newer neighbour, newest-first and oldest-first are each a single $O(n)$ walk from one end, with no sorting and no copy into an array.
+
+### 2C.2 The `log` Command
+- **Header / Source:** `include/LogCommand.h`, `src/LogCommand.cpp`
+- `showLog(root, reverse)` returns a `LogResult` with a status (`OK`, `EMPTY`, `NOT_A_REPO`, `ERROR`) and a list of `LogEntry` values (`commitId`, `parentId`, `message`, `timestamp`, `fileCount`). Like every other module it never prints; only the CLI does.
+- **Newest first (default):** the cursor starts at `tail()` and walks backward with `prev()`.
+- **Oldest first (`--reverse`):** the cursor starts at `head()` and walks forward with `next()`.
+- `formatTimestamp()` turns the stored unix time into `YYYY-MM-DD HH:MM:SS` (local time).
+- The graph form of the log (`log --all --graph`) is described in section 6.2.
+
+### 2C.3 Restoring a Commit (`checkout <commit-id>`)
+- **Header / Source:** `include/RestoreCommand.h`, `src/RestoreCommand.cpp`
+- Restores the working folder to the snapshot stored in `.minigit/objects/<commit-id>/snapshot/`. The argument may be a full 40-character id or a unique prefix of at least 4 characters.
+- The safety checks, the temporary-copy-and-backup restore, the handling of ignored files and the detached-HEAD rules are described step by step in section 6.2, item 5.
+- It is the other half of rollback: `checkout <commit-id>` leaves every branch where it is, whereas `rollback <commit-id>` moves the active branch (section 5).
+
+### 2C.4 Tests
+- `test_commitlog`: the list on its own: insert, find, next, prev, and behaviour at both ends.
+- `test_log`: `log` and `log --reverse` over real commits, after an undo, on an empty repository, and through the CLI.
+- `test_checkout`: exact restore, refusal when work would be lost, ignored files untouched, deletions honoured, detached-HEAD rules, and damaged or unsafe commits rejected without changing anything.
+
+---
+
 ---
 
 ## 3. Core Data Structures
@@ -211,6 +260,89 @@ Sparsh is responsible for the **Ignore Engine (Dual Trie)**, **`.minigitignore` 
   - Cycle detection using 3-color Depth First Search (DFS): guarantees the graph is strictly acyclic ($O(V + E)$).
   - Topological sorting via Kahn's in-degree reduction algorithm with priority queue: linearizes commits such that children always precede ancestors, ensuring deterministic traversal for ASCII graph visualization.
   - Reachability traversal via Breadth First Search (BFS) with `std::unordered_set<std::string>` visited set: prevents duplicate traversal when branches share common ancestors.
+
+### 3.4 Double-Ended Queue for Undo and Redo
+- **Header:** `include/CommitHistory.h`
+- **Source:** `src/CommitHistory.cpp`
+- **Class:** `minigit::CommitHistory`
+- **Structure:** two `std::deque<HistoryEntry>` containers, one for undo states and one for redo states. A `HistoryEntry` holds the commit id, the parent commit id, a snapshot of the staged files, the message and the timestamp.
+- **Recording (`recordOperation`):** called by `commit` before `HEAD` moves. It saves the current state in the undo deque and clears the redo deque, because a new commit ends the redo path. When the undo deque grows past the limit (20, `DEFAULT_HISTORY_LIMIT`), `pop_front()` drops the oldest state.
+- **Undo:** `pop_back()` takes the newest state from the undo deque, and the current state is pushed onto the redo deque.
+- **Redo:** the mirror image: `pop_back()` from the redo deque, and the current state goes back onto the undo deque.
+- **Why a deque:** undo and redo work like a stack at the back ($O(1)$ `push_back` and `pop_back`), but the oldest state must also be dropped from the front ($O(1)$ `pop_front`). A `std::stack` cannot drop its bottom element, and erasing the front of a `std::vector` costs $O(n)$.
+- **Consistency:** each entry stores the commit id together with the staged files (including staged deletions), so `HEAD` and the index change together when a commit is undone or redone.
+- **Safety check:** each entry also records the `branch` it was made on and the `expectedHead` commit that branch should point to. Before using an entry, `undo` and `redo` verify both. If the active branch differs, or the branch has moved since (a `checkout` or `rollback`), the operation is refused instead of rewriting the branch to a commit from another line of history.
+- **Persistence:** the deques are saved to `.minigit/history` after every operation.
+
+### 3.5 Doubly Linked List for the Commit Log
+- **Headers:** `include/CommitNode.h`, `include/CommitLog.h`
+- **Source:** `src/CommitLog.cpp`
+- **Structure:** a hand-written list in which every `CommitNode` points to the next older commit (`prev`) and the next newer commit (`next`). `head()` is the oldest commit and `tail()` is the newest, which is the commit `HEAD` points to.
+
+```
+nullptr <- [c1] <-> [c2] <-> [c3] <-> [c4] -> nullptr
+           head (oldest)               tail (newest)
+```
+
+| Operation | Cost | Used by |
+|---|---|---|
+| `insert(node)` (append at the tail) | $O(1)$ | `load()` |
+| `find(id)` | $O(n)$ | lookup by exact commit id |
+| `next()` / `prev()` (move the cursor one step) | $O(1)$ | `log --reverse` / `log` |
+| Walk the whole list | $O(n)$ | `log`, `log --reverse` |
+| `load()` | $O(n)$ | every `log` call |
+
+- **Why not a singly linked list:** the first design (Phase 1) used one. With a single direction, one of the two log orders would need an extra reversal or a stack. Two pointers per node make both orders a plain walk.
+- **Building the list:** commits are discovered newest-first by following `parent` links, but inserted oldest-first, so the finished list reads from the first commit to the latest.
+
+### 3.6 Commit Object Format
+
+**Repository layout**
+```
+.minigit/
+├── HEAD                     # "ref: refs/heads/main", or a raw commit id when detached
+├── index                    # staged paths, one per line
+├── history                  # undo/redo deques
+├── refs/heads/<branch>      # one file per branch: the tip commit id
+└── objects/<commit-id>/
+    ├── metadata             # commit information (format below)
+    └── snapshot/<path>      # the content of every file saved by this commit
+```
+
+**`objects/<commit-id>/metadata`**
+```
+commit <40-character SHA-1 id>
+parent <parent id, or "none" for the first commit>
+timestamp <unix time in seconds>
+author <MINIGIT_AUTHOR, USERNAME or USER, else "unknown">
+message <one-line message>
+files <N>
+<path 1>
+...
+deleted <M>              (only when the commit deletes files)
+<deleted path 1>
+...
+```
+- `files` counts only the files added or changed by this commit; deletions are listed separately in the optional `deleted` block.
+- The commit id is the SHA-1 of the parent id, the timestamp, the message, each file's name, size and content, and a `delete <path>` line for every staged deletion. The same input always produces the same id.
+- A multi-line message is flattened to one line (each run of line breaks becomes one space) because the file is read line by line.
+- Snapshots are written first and the `metadata` file last, atomically. Its presence marks the commit as complete, so an interrupted commit is never mistaken for a valid one, and a half-written commit is removed again.
+- If an identical commit (same parent, time, message and content) is already stored, it is reused.
+- `log` rebuilds the list by reading `parent` from each metadata file.
+
+### 3.7 Complexity Summary
+
+| Feature | Data structure | Operation | Cost |
+|---|---|---|---|
+| Ignore rules | Forward Trie | check a path of length $L$ | $O(L)$ |
+| Ignore rules | Reversed extension Trie | check an extension of length $E$ | $O(E)$ |
+| Staging area | `std::set` | stage, unstage, status check | $O(\log n)$ |
+| Undo / redo | `std::deque` | record, undo, redo, drop oldest | $O(1)$ |
+| Commit log | Doubly linked list | append, next, prev | $O(1)$ |
+| Commit log | Doubly linked list | find by id, full walk | $O(n)$ |
+| Commit graph | DAG (adjacency list) | BFS / reachability | $O(V + E)$ |
+| Commit graph | DAG (adjacency list) | cycle detection (3-colour DFS) | $O(V + E)$ |
+| Commit graph | DAG (adjacency list) | topological sort with a priority queue | $O(V \\log V + E)$ |
 
 ---
 
@@ -302,6 +434,47 @@ usage: minigit ignore | minigit ignore <pattern> | minigit ignore -r <pattern> |
    ignore -v <path>     Show whether a path is ignored, and by which line
 ```
 
+### 7. Commit
+```powershell
+minigit add notes.txt
+minigit commit "Add notes"       # or: minigit commit -m "Add notes"
+```
+**Output:**
+```
+[main 1a2b3c4] Add notes
+1 file(s) committed
+```
+The staged files (and any staged deletions) are saved as a snapshot under `.minigit/objects/<commit-id>/`, the active branch is moved to the new commit, and the index is cleared. A message must not be empty, and at least one file or deletion must be staged (otherwise: `fatal: nothing to commit`). A commit is refused while `HEAD` is detached, because it would belong to no branch.
+
+### 8. Undo and Redo
+```powershell
+minigit undo        # same as: minigit commit undo
+minigit redo        # same as: minigit commit redo
+```
+`undo` moves the active branch back one commit and restores the staged files from before that commit; `redo` re-applies the commit that was undone. Up to 20 states are kept, and making a new commit clears the redo history. Each saved state remembers its branch and the commit that branch pointed to, so undo and redo only work on that branch and only while it has not moved. After a `checkout` or `rollback`, or on another branch, they print `nothing to undo here: <reason>` or `nothing to redo here: <reason>`. With nothing stored at all the message is `fatal: nothing to undo` or `fatal: nothing to redo`.
+
+### 9. Log
+```powershell
+minigit log             # newest commit first
+minigit log --reverse   # oldest commit first
+```
+**Output (one block per commit):**
+```
+commit 1a2b3c4
+parent  9f8e7d6
+date    2026-05-02 14:03:11
+
+    Add notes
+    (1 file(s))
+```
+The first commit has no `parent` line. An empty repository prints `No commits yet`.
+
+### 10. Restore a Commit
+```powershell
+minigit checkout 1a2b3c4      # a full id or a unique prefix of at least 4 characters
+```
+Replaces the tracked files in the working folder with the snapshot of that commit and detaches `HEAD` at it. Nothing is changed if staged files, edited or deleted tracked files, or untracked files in the way would be lost. Ignored files are never touched. Full rules: section 2C.3 and section 6.2, item 5.
+
 ---
 
 ## 5. Rollback Architecture & Semantics
@@ -362,13 +535,13 @@ In MiniGit's DAG branching architecture:
    - Updates `.minigit/HEAD` to point to `refs/heads/<branch-name>`.
 4. **Delete Branch:** `minigit branch -d <branch-name>`
    - Validates existence and protects against deleting the currently active branch.
-4b. **Restore a Commit (Snehil):** `minigit checkout <commit-id>`
+5. **Restore a Commit (Snehil):** `minigit checkout <commit-id>`
    - Used when the argument is not an existing branch and is 4-40 hex digits (a full id or a unique prefix).
    - Refuses first, changing nothing, if anything would be lost: staged files, edited or deleted tracked files, untracked files in the way.
    - Writes every target file to a temporary copy, then swaps each in with a backup; if any step fails, all of them are undone.
    - Never touches ignored files. Leaves `.minigit/HEAD` holding the commit id (detached), so no branch moves.
    - While detached, `commit`, `undo`, `redo` and `rollback` refuse (they move a branch); `branch <name>` + `checkout <name>` continue from there.
-5. **DAG ASCII Visualization:** `minigit log --all --graph`
+6. **DAG ASCII Visualization:** `minigit log --all --graph`
    - Builds `CommitGraph` across all branches, performs cycle verification, sorts nodes topologically, and renders a visual ASCII DAG indicating branch tips and merge/fork points.
 
 ---
@@ -396,3 +569,22 @@ make test
 - `test_branch`: Verifies branch listing, creation, switching, deletion, active-branch protection, and snapshot reconciliation across branches.
 - `test_checkout`: Verifies `checkout <commit-id>`: exact restore, unsaved-work refusal, ignored files untouched, deletions honoured, detached-HEAD rules, and damaged or unsafe commits rejected without changes.
 - `test_dag`: Verifies 5-node diverging graph (A -> B/C -> D/E), shared ancestor verification, cycle detection, topological ordering, duplicate-free traversal, and ASCII graph rendering.
+
+---
+
+## 8. Error Messages Reference
+
+Every command prints its error and returns exit code `1`. Success is exit code `0`.
+
+| Message | Command | Cause | What to do |
+|---|---|---|---|
+| `fatal: not a minigit repository (run 'minigit init')` | any | no `.minigit/` folder here | run `minigit init` |
+| `fatal: nothing to commit` | `commit` | the index is empty | `minigit add <file>` first |
+| `fatal: commit message cannot be empty` | `commit` | blank message | pass a message: `minigit commit "text"` |
+| `fatal: '<file>' does not exist` | `commit` | a staged file was deleted from disk | restore it, or `minigit remove <file>` |
+| `fatal: nothing to undo` | `undo` | no earlier state is stored | none; this is the oldest state |
+| `fatal: nothing to redo` | `redo` | nothing was undone since the last commit | none |
+| `No commits yet` | `log` | the repository has no commits | make a first commit |
+| `'<path>' does not exist` | `add` | wrong path | check the spelling |
+| `minigit: '<x>' is not a minigit command. See 'minigit --help'.` | any | unknown command | use the suggested command, or `minigit help` |
+| `usage: minigit <command> ...` | any | wrong arguments | follow the usage line shown |
