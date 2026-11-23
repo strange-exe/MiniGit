@@ -1,0 +1,23 @@
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.md]
+# Two trailing spaces are a line break in Markdown.
+trim_trailing_whitespace = false
+
+[{Makefile,*.mk}]
+indent_style = tab
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[module/include/ghc/**]
+# Vendored third-party header: leave it as shipped.
+trim_trailing_whitespace = false
+insert_final_newline = unset
