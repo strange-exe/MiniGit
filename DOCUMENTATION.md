@@ -16,10 +16,12 @@
    - [2.3 Status & Error Mapping (`IS_STAGED`)](#23-status--error-mapping-is_staged)
    - [2.4 `.minigitignore` CLI & Validation](#24-minigitignore-cli--validation)
    - [2.5 Zero-Config First-Run Self-Installation](#25-zero-config-first-run-self-installation)
-
-2B. [Sparsh's Responsibilities & Implementation](#2b-sparshs-responsibilities--implementation)
-
-2C. [Snehil's Responsibilities & Implementation](#2c-snehils-responsibilities--implementation)
+- [2B. Sparsh's Responsibilities & Implementation](#2b-sparshs-responsibilities--implementation)
+   - [2B.1 Ignore Engine](#2b1-ignore-engine)
+   - [2B.2 Staging Area](#2b2-staging-area)
+   - [2B.3 Add and Remove](#2b3-add-and-remove)
+   - [2B.4 Tests](#2b4-tests)
+- [2C. Snehil's Responsibilities & Implementation](#2c-snehils-responsibilities--implementation)
    - [2C.1 Commit Log (Doubly Linked List)](#2c1-commit-log-doubly-linked-list)
    - [2C.2 The `log` Command](#2c2-the-log-command)
    - [2C.3 Restoring a Commit (`checkout <commit-id>`)](#2c3-restoring-a-commit-checkout-commit-id)
@@ -651,7 +653,7 @@ A deque fits because both ends are used: the newest end behaves as a stack for u
 
 ## 9. Error Messages Reference
 
-Every command prints its error and returns exit code `1`. Success is exit code `0`.
+Every command prints its error and returns exit code `1`. Success is exit code `0`. `log` on a repository with no commits prints `No commits yet` and exits with `0`, because an empty history is not an error.
 
 | Message | Command | Cause | What to do |
 |---|---|---|---|
@@ -661,7 +663,6 @@ Every command prints its error and returns exit code `1`. Success is exit code `
 | `fatal: '<file>' does not exist` | `commit` | a staged file was deleted from disk | restore it, or `minigit remove <file>` |
 | `fatal: nothing to undo` | `undo` | no earlier state is stored | none; this is the oldest state |
 | `fatal: nothing to redo` | `redo` | nothing was undone since the last commit | none |
-| `No commits yet` | `log` | the repository has no commits | make a first commit |
 | `'<path>' does not exist` | `add` | wrong path | check the spelling |
 | `minigit: '<x>' is not a minigit command. See 'minigit --help'.` | any | unknown command | use the suggested command, or `minigit help` |
 | `usage: minigit <command> ...` | any | wrong arguments | follow the usage line shown |

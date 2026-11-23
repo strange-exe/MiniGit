@@ -75,7 +75,7 @@ int main() {
     CHECK(!n.findMatch("a/c.txt", m));
     CHECK(n.findMatch("a/b.txt", m) && m.line == 3);
     CHECK(n.remove("a/b.txt") && n.empty());
-    
+
     // path normalization
     CHECK(normalizePath(".\\src\\a.txt") == "src/a.txt");
     CHECK(normalizePath("./src/a.txt") == "src/a.txt");

@@ -132,7 +132,7 @@ int main() {
     CHECK(ignoreAdd("../outside.txt", R).status == IgnoreResult::ERROR);
     CHECK(IgnoreManager(R).lines().size() == 2);
 
-        // ---- staged deletions ----
+    // ---- staged deletions ----
     {
         StagingArea sd(R);
         sd.clear();  // start from an empty index
